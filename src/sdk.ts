@@ -9,9 +9,15 @@ import {
 	registrarGasto,
 	registrarGastoParcelado,
 	registrarPagamento,
+	criarRecorrente,
+	dataDaOcorrencia,
+	listarPendentesNoMes,
+	marcarComoPaga,
+	marcarComoPrevista,
 	registrarTransacao,
 	removerTransacao,
 	validarConfiguracao,
+	type Recorrente,
 	type CategoriaConta,
 	type CategoriaTransacao,
 	type Cartao,
@@ -34,6 +40,8 @@ import type {
 	Card,
 	CardSummary,
 	Invoice,
+	Recurring,
+	RecurringStatus,
 	Transaction,
 	TransactionType
 } from './model';
@@ -454,6 +462,146 @@ function fromSdkCard(card: Cartao): Card {
 		active: card.ativo,
 		createdAt: card.criadoEm
 	};
+}
+
+const recurringStatusToSdk: Record<RecurringStatus, 'prevista' | 'paga'> = {
+	expected: 'prevista',
+	paid: 'paga'
+};
+
+const recurringStatusFromSdk: Record<'prevista' | 'paga', RecurringStatus> = {
+	prevista: 'expected',
+	paga: 'paid'
+};
+
+export interface RecurringDraft {
+	id: string;
+	createdAt: string;
+	name: string;
+	category: string;
+	type: 'income' | 'expense';
+	expectedAmount: number;
+	dueDay: number;
+	startsOn: string;
+	endsOn?: string;
+	accountId: string;
+	cardId?: string;
+}
+
+export interface RecurringOccurrence {
+	id: string;
+	date: string;
+	name: string;
+	amount: number;
+}
+
+export function createRecurring(input: RecurringDraft): Recurring {
+	return fromSdkRecurring(
+		criarRecorrente({
+			id: input.id,
+			criadoEm: input.createdAt,
+			nome: input.name,
+			categoria: input.category as CategoriaTransacao,
+			tipo: input.type === 'income' ? 'entrada' : 'saida',
+			valorEsperado: input.expectedAmount,
+			diaVencimento: input.dueDay,
+			dataInicio: input.startsOn,
+			dataFim: input.endsOn,
+			contaId: input.accountId,
+			cartaoId: input.cardId
+		})
+	);
+}
+
+export function recurringOccurrence(recurring: Recurring, month: string): string | null {
+	return dataDaOcorrencia(toSdkRecurring(recurring), month);
+}
+
+export function pendingRecurrings(items: Recurring[], month: string): RecurringOccurrence[] {
+	const pending = listarPendentesNoMes(items.map(toSdkRecurring), month);
+	const occurrences: RecurringOccurrence[] = [];
+	for (const item of pending) {
+		const date = dataDaOcorrencia(item, month);
+		if (!date) continue;
+		occurrences.push({
+			id: item.id,
+			date,
+			name: item.nome,
+			amount: item.valorEsperado
+		});
+	}
+	occurrences.sort(byDateThenId);
+	return occurrences;
+}
+
+export function markRecurringPaid(
+	recurring: Recurring,
+	month: string,
+	transactionId: string
+): Recurring {
+	return fromSdkRecurring(marcarComoPaga(toSdkRecurring(recurring), month, transactionId));
+}
+
+export function markRecurringExpected(recurring: Recurring, month: string): Recurring {
+	return fromSdkRecurring(marcarComoPrevista(toSdkRecurring(recurring), month));
+}
+
+function byDateThenId(a: RecurringOccurrence, b: RecurringOccurrence): number {
+	if (a.date < b.date) return -1;
+	if (a.date > b.date) return 1;
+	if (a.id < b.id) return -1;
+	if (a.id > b.id) return 1;
+	return 0;
+}
+
+function toSdkRecurring(recurring: Recurring): Recorrente {
+	const statusPorMes: Record<string, 'prevista' | 'paga'> = {};
+	for (const [month, status] of Object.entries(recurring.statusByMonth)) {
+		statusPorMes[month] = recurringStatusToSdk[status];
+	}
+	const mapped: Recorrente = {
+		id: recurring.id,
+		nome: recurring.name,
+		categoria: recurring.category as CategoriaTransacao,
+		tipo: recurring.type === 'income' ? 'entrada' : 'saida',
+		valorEsperado: recurring.expectedAmount,
+		diaVencimento: recurring.dueDay,
+		dataInicio: recurring.startsOn,
+		contaId: recurring.accountId,
+		ativa: recurring.active,
+		statusPorMes,
+		criadoEm: recurring.createdAt
+	};
+	if (recurring.endsOn) mapped.dataFim = recurring.endsOn;
+	if (recurring.cardId) mapped.cartaoId = recurring.cardId;
+	if (Object.keys(recurring.paymentsByMonth).length > 0) {
+		mapped.pagamentosPorMes = { ...recurring.paymentsByMonth };
+	}
+	return mapped;
+}
+
+function fromSdkRecurring(recurring: Recorrente): Recurring {
+	const statusByMonth: Record<string, RecurringStatus> = {};
+	for (const [month, status] of Object.entries(recurring.statusPorMes)) {
+		statusByMonth[month] = recurringStatusFromSdk[status];
+	}
+	const mapped: Recurring = {
+		id: recurring.id,
+		name: recurring.nome,
+		category: recurring.categoria,
+		type: recurring.tipo === 'entrada' ? 'income' : 'expense',
+		expectedAmount: recurring.valorEsperado,
+		dueDay: recurring.diaVencimento,
+		startsOn: recurring.dataInicio,
+		accountId: recurring.contaId,
+		active: recurring.ativa,
+		statusByMonth,
+		paymentsByMonth: { ...(recurring.pagamentosPorMes ?? {}) },
+		createdAt: recurring.criadoEm
+	};
+	if (recurring.dataFim) mapped.endsOn = recurring.dataFim;
+	if (recurring.cartaoId) mapped.cardId = recurring.cartaoId;
+	return mapped;
 }
 
 export function checkSettings(settings: Settings): Settings {

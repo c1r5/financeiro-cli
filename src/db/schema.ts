@@ -38,6 +38,22 @@ export function ensureSchema(db: Database): void {
 		active INTEGER NOT NULL,
 		created_at TEXT NOT NULL
 	)`);
+	db.run(`CREATE TABLE IF NOT EXISTS recurrings (
+		id TEXT PRIMARY KEY,
+		name TEXT NOT NULL,
+		category TEXT NOT NULL,
+		type TEXT NOT NULL,
+		expected_amount INTEGER NOT NULL,
+		due_day INTEGER NOT NULL,
+		starts_on TEXT NOT NULL,
+		ends_on TEXT,
+		account_id TEXT NOT NULL,
+		card_id TEXT,
+		active INTEGER NOT NULL,
+		status_by_month TEXT NOT NULL,
+		payments_by_month TEXT NOT NULL,
+		created_at TEXT NOT NULL
+	)`);
 	db.run(`CREATE TABLE IF NOT EXISTS settings (
 		id INTEGER PRIMARY KEY CHECK (id = 1),
 		currency TEXT NOT NULL,

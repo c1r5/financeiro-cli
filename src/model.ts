@@ -51,6 +51,27 @@ export interface Installment {
 	total: number;
 }
 
+export type RecurringType = 'income' | 'expense';
+
+export type RecurringStatus = 'expected' | 'paid';
+
+export interface Recurring {
+	id: string;
+	name: string;
+	category: string;
+	type: RecurringType;
+	expectedAmount: number;
+	dueDay: number;
+	startsOn: string;
+	endsOn?: string;
+	accountId: string;
+	cardId?: string;
+	active: boolean;
+	statusByMonth: Record<string, RecurringStatus>;
+	paymentsByMonth: Record<string, string>;
+	createdAt: string;
+}
+
 export interface Transaction {
 	id: string;
 	date: string;

@@ -16,6 +16,10 @@ Commands:
   card invoice --card <id> --reference YYYY-MM
   card pay --card <id> --account <id> --amount <cents> --reference YYYY-MM --date YYYY-MM-DD
   card summary --card <id>
+  recurring add --type income|expense --name <name> --amount <cents> --day <n> --start YYYY-MM-DD --account <id> --category <name> [--until YYYY-MM-DD] [--card <id>]
+  recurring list --month YYYY-MM
+  recurring pay --id <id> --month YYYY-MM [--amount <cents>] [--account <id>] [--card <id>]
+  recurring revert --id <id> --month YYYY-MM
   settings show
   settings set [--currency <code>] [--general <n>] [--debts <n>] [--reserve <n>] [--margin <cents>]
 

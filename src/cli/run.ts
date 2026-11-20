@@ -13,6 +13,7 @@ import {
 import { SystemClock } from '../system-clock';
 import { UuidGenerator } from '../uuid-generator';
 import { runCard } from './card-command';
+import { runRecurring } from './recurring-command';
 import { formatSettings, showSettings, updateSettings } from './settings-command';
 import { accountCategory, accountType, transactionType } from './vocabulary';
 
@@ -76,6 +77,10 @@ async function execute(
 	}
 	if (command === 'card') {
 		await runCard(args, file, repository, clock, ids);
+		return;
+	}
+	if (command === 'recurring') {
+		await runRecurring(args, file, repository, clock, ids);
 		return;
 	}
 	if (command === 'settings' && args[1] === 'show') {
