@@ -1,4 +1,5 @@
-import { Database } from 'bun:sqlite';
+import type { Database } from 'bun:sqlite';
+import { openDatabase } from '../db/open';
 import { ensureSchema } from '../db/schema';
 import type {
 	Account,
@@ -41,7 +42,7 @@ export class SqliteLedgerRepository {
 	private readonly db: Database;
 
 	constructor(file: string) {
-		this.db = new Database(file);
+		this.db = openDatabase(file);
 		ensureSchema(this.db);
 	}
 

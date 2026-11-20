@@ -28,7 +28,8 @@ export async function run(argv: string[]): Promise<number> {
 	}
 
 	try {
-		const file = option(args, '--file') ?? 'financeiro.sqlite';
+		const fromEnv = process.env.FINANCEIRO_FILE;
+		const file = option(args, '--file') ?? (fromEnv ? fromEnv : 'financeiro.sqlite');
 		const repository = new SqliteLedgerRepository(file);
 		const clock = new SystemClock();
 		const ids = new UuidGenerator();
