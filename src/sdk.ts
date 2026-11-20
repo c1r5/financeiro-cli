@@ -10,6 +10,7 @@ import {
 	registrarGastoParcelado,
 	registrarPagamento,
 	aplicarASerie,
+	calcularGastoDiarioDisponivel,
 	contaNaProjecao,
 	criarRecorrente,
 	dataDaOcorrencia,
@@ -20,6 +21,7 @@ import {
 	marcarComoPrevista,
 	marcarDiaPago,
 	ocorreNoDia,
+	projetarSaldo,
 	valorNoDia,
 	type Frequencia,
 	type Previsao,
@@ -744,6 +746,49 @@ function fromSdkForecast(forecast: Previsao, accountId: string): Forecast {
 		for (const day of Object.keys(forecast.statusPorDia)) mapped.statusByDay[day] = 'paid';
 	}
 	return mapped;
+}
+
+export interface ProjectedDay {
+	date: string;
+	balance: number;
+	events: string[];
+}
+
+export function projectBalance(input: {
+	available: number;
+	transactions: Transaction[];
+	accounts: Account[];
+	today: string;
+	days: number;
+	recurrings: Recurring[];
+	cards: Card[];
+	forecasts: Forecast[];
+	margin: number;
+}): { days: ProjectedDay[]; dailyLimit: number } {
+	const projected = projetarSaldo({
+		saldoAtual: input.available,
+		transacoes: input.transactions.map(toSdkTransaction),
+		contas: input.accounts.map(toSdkAccount),
+		dataInicio: input.today,
+		horizonteDias: input.days,
+		recorrentes: input.recurrings.map(toSdkRecurring),
+		cartoes: input.cards.map(toSdkCard),
+		previsoes: input.forecasts.map(toSdkForecast)
+	});
+	const limits = calcularGastoDiarioDisponivel(projected, input.margin);
+	return {
+		days: projected.map((day) => ({
+			date: day.data,
+			balance: day.saldoProjetado,
+			events: day.eventos.map(eventName)
+		})),
+		dailyLimit: limits[0] ?? 0
+	};
+}
+
+function eventName(event: { nome: string }): string {
+	if (event.nome.startsWith('Fatura ')) return `Invoice ${event.nome.slice('Fatura '.length)}`;
+	return event.nome;
 }
 
 export function checkSettings(settings: Settings): Settings {

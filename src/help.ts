@@ -25,6 +25,7 @@ Commands:
   forecast pay --id <id> --date YYYY-MM-DD [--account <id>]
   forecast edit --id <id> --date YYYY-MM-DD --amount <cents>
   forecast edit --id <id> --amount <cents> --all
+  projection show --days <n>
   settings show
   settings set [--currency <code>] [--general <n>] [--debts <n>] [--reserve <n>] [--margin <cents>]
 
