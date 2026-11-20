@@ -19,6 +19,7 @@ jobs:
         env:
           SDK_READ_TOKEN: ${{ secrets.SDK_READ_TOKEN }}
         run: |
+          git config --local --unset-all http.https://github.com/.extraheader || true
           git config --global url."https://x-access-token:${SDK_READ_TOKEN}@github.com/".insteadOf "https://github.com/"
           git config --global url."https://x-access-token:${SDK_READ_TOKEN}@github.com/".insteadOf "ssh://git@github.com/"
           git config --global url."https://x-access-token:${SDK_READ_TOKEN}@github.com/".insteadOf "git@github.com:"
