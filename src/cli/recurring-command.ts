@@ -1,6 +1,6 @@
 import { CardRepository } from '../cards/cards';
 import type { SqliteLedgerRepository } from '../ledger/sqlite-ledger-repository';
-import type { Transaction } from '../model';
+import type { Recurring, Transaction } from '../model';
 import { RecurringRepository } from '../recurring/recurrings';
 import {
 	createRecurring,
@@ -14,7 +14,8 @@ import {
 import type { SystemClock } from '../system-clock';
 import type { UuidGenerator } from '../uuid-generator';
 import type { Reply } from './output';
-import { flowType } from './vocabulary';
+import { recordLines } from './record';
+import { flowType, transactionCategory } from './vocabulary';
 
 export async function runRecurring(
 	args: string[],
@@ -36,7 +37,7 @@ export async function runRecurring(
 				id: ids.newId(),
 				createdAt: clock.now(),
 				name: required(flags, '--name'),
-				category: required(flags, '--category'),
+				category: transactionCategory(required(flags, '--category')),
 				type: flowType(required(flags, '--type')),
 				expectedAmount: cents(required(flags, '--amount')),
 				dueDay: cents(required(flags, '--day')),
@@ -50,7 +51,13 @@ export async function runRecurring(
 			return;
 		}
 		if (action === 'list') {
-			const month = yearMonth(required(flags, '--month'));
+			const monthFlag = option(flags, '--month');
+			if (monthFlag === undefined) {
+				const listed = recurrings.list().map(recurringData);
+				reply(recordLines(listed), { recurrings: listed });
+				return;
+			}
+			const month = yearMonth(monthFlag);
 			const pending = pendingRecurrings(recurrings.list(), month);
 			reply(
 				pending.map((item) => `${item.id} ${item.date} ${item.name} ${item.amount}`),
@@ -117,6 +124,25 @@ export async function runRecurring(
 		recurrings.close();
 		cards.close();
 	}
+}
+
+function recurringData(recurring: Recurring): Record<string, unknown> {
+	return {
+		id: recurring.id,
+		name: recurring.name,
+		category: recurring.category,
+		type: recurring.type,
+		expectedAmount: recurring.expectedAmount,
+		dueDay: recurring.dueDay,
+		startsOn: recurring.startsOn,
+		endsOn: recurring.endsOn ?? null,
+		accountId: recurring.accountId,
+		cardId: recurring.cardId ?? null,
+		active: recurring.active,
+		statusByMonth: recurring.statusByMonth,
+		paymentsByMonth: recurring.paymentsByMonth,
+		createdAt: recurring.createdAt
+	};
 }
 
 function yearMonth(value: string): string {

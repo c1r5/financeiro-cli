@@ -1,6 +1,7 @@
+import { CATEGORIAS } from 'financeiro-sdk';
 import { usage } from '../help';
 import { SqliteLedgerRepository } from '../ledger/sqlite-ledger-repository';
-import type { Transaction, TransactionType } from '../model';
+import type { Account, Transaction, TransactionType } from '../model';
 import {
 	deleteTransaction,
 	listLedger,
@@ -19,8 +20,9 @@ import { runForecast } from './forecast-command';
 import { fail, present, takeBoolean, type Reply } from './output';
 import { runProjection } from './projection-command';
 import { runRecurring } from './recurring-command';
+import { recordLines } from './record';
 import { formatSettings, showSettings, updateSettings } from './settings-command';
-import { accountCategory, accountType, transactionType } from './vocabulary';
+import { accountCategory, accountType, transactionCategory, transactionType } from './vocabulary';
 
 export async function run(argv: string[]): Promise<number> {
 	const args = [...argv];
@@ -66,6 +68,21 @@ async function execute(
 	reply: Reply
 ): Promise<void> {
 	const command = args[0];
+	if (command === 'account' && args[1] === 'list') {
+		const accounts = (await repository.listAccounts()).map(accountData);
+		reply(recordLines(accounts), { accounts });
+		return;
+	}
+	if (command === 'category' && args[1] === 'list') {
+		const categories = CATEGORIAS.map((category) => ({
+			value: category.value,
+			label: category.label,
+			flow: category.fluxo.map((flow) => (flow === 'entrada' ? 'income' : 'expense')),
+			group: category.grupo === 'divida' ? 'debt' : null
+		}));
+		reply(recordLines(categories), { categories });
+		return;
+	}
 	if (command === 'account' && args[1] === 'open') {
 		await open(args.slice(2), repository, clock, ids, reply);
 		return;
@@ -130,6 +147,19 @@ async function execute(
 	throw new Error(`unknown command: ${command}`);
 }
 
+function accountData(account: Account): Record<string, unknown> {
+	return {
+		id: account.id,
+		type: account.type,
+		name: account.name,
+		description: account.description,
+		openingBalance: account.openingBalance,
+		active: account.active,
+		linkedAccountId: account.linkedAccountId ?? null,
+		category: account.category ?? null
+	};
+}
+
 function settingsData(settings: Settings): {
 	currency: string;
 	general: number;
@@ -184,7 +214,7 @@ async function post(
 		description: required(flags, '--description'),
 		type: transactionType(required(flags, '--type')),
 		amount: cents(required(flags, '--amount')),
-		category: option(flags, '--category') ?? 'outros',
+		category: transactionCategory(option(flags, '--category') ?? 'outros'),
 		accountId: required(flags, '--account')
 	};
 	const destination = option(flags, '--to');

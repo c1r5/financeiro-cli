@@ -5,10 +5,13 @@ Usage:
 
 Commands:
   account open --type checking|savings --name <name> --balance <cents> [--linked <id>] [--category reserve|goal]
+  account list
   balance
+  category list
   post --type income|expense|transfer --amount <cents> --date YYYY-MM-DD --description <text> --account <id> [--to <id>] [--category <name>]
   list [--month <n>] [--year <n>] [--type income|expense|transfer] [--text <query>]
   remove <id>
+  card list
   card open --name <name> --limit <cents> --closes <day> --due <day> --color <value>
   card base --card <id> --reference YYYY-MM --amount <cents>
   card purchase --card <id> --amount <cents> --date YYYY-MM-DD --description <text> --category <name>
@@ -17,9 +20,10 @@ Commands:
   card pay --card <id> --account <id> --amount <cents> --reference YYYY-MM --date YYYY-MM-DD
   card summary --card <id>
   recurring add --type income|expense --name <name> --amount <cents> --day <n> --start YYYY-MM-DD --account <id> --category <name> [--until YYYY-MM-DD] [--card <id>]
-  recurring list --month YYYY-MM
+  recurring list [--month YYYY-MM]
   recurring pay --id <id> --month YYYY-MM [--amount <cents>] [--account <id>] [--card <id>]
   recurring revert --id <id> --month YYYY-MM
+  forecast list
   forecast add --type income|expense --frequency once|monthly|daily --name <name> --amount <cents> --date YYYY-MM-DD --category <name> --account <id> [--until YYYY-MM-DD] [--weekdays 0,1,2,3,4,5,6]
   forecast exclude --id <id> --date YYYY-MM-DD
   forecast pay --id <id> --date YYYY-MM-DD [--account <id>]

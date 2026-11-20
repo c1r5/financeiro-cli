@@ -1,5 +1,6 @@
 import { ForecastRepository } from '../forecasts/forecasts';
 import type { SqliteLedgerRepository } from '../ledger/sqlite-ledger-repository';
+import type { Forecast } from '../model';
 import {
 	createForecast,
 	editForecastDay,
@@ -12,7 +13,8 @@ import {
 import type { SystemClock } from '../system-clock';
 import type { UuidGenerator } from '../uuid-generator';
 import type { Reply } from './output';
-import { flowType, forecastFrequency } from './vocabulary';
+import { recordLines } from './record';
+import { flowType, forecastFrequency, transactionCategory } from './vocabulary';
 
 export async function runForecast(
 	args: string[],
@@ -26,6 +28,11 @@ export async function runForecast(
 	const flags = args.slice(2);
 	const forecasts = new ForecastRepository(file);
 	try {
+		if (action === 'list') {
+			const listed = forecasts.list().map(forecastData);
+			reply(recordLines(listed), { forecasts: listed });
+			return;
+		}
 		if (action === 'add') {
 			const frequency = forecastFrequency(required(flags, '--frequency'));
 			const weekdays = option(flags, '--weekdays');
@@ -41,7 +48,7 @@ export async function runForecast(
 				type: flowType(required(flags, '--type')),
 				frequency,
 				date: required(flags, '--date'),
-				category: required(flags, '--category'),
+				category: transactionCategory(required(flags, '--category')),
 				accountId: required(flags, '--account'),
 				weekdays: days,
 				endsOn: until
@@ -93,6 +100,25 @@ export async function runForecast(
 	} finally {
 		forecasts.close();
 	}
+}
+
+function forecastData(forecast: Forecast): Record<string, unknown> {
+	return {
+		id: forecast.id,
+		name: forecast.name,
+		amount: forecast.amount,
+		type: forecast.type,
+		frequency: forecast.frequency,
+		weekdays: forecast.weekdays ?? null,
+		endsOn: forecast.endsOn ?? null,
+		statusByDay: forecast.statusByDay,
+		paymentsByDay: forecast.paymentsByDay,
+		amountsByDay: forecast.amountsByDay,
+		excluded: forecast.excluded,
+		date: forecast.date,
+		category: forecast.category,
+		accountId: forecast.accountId
+	};
 }
 
 function parseWeekdays(value: string): number[] {
