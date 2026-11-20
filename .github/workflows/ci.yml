@@ -1,0 +1,26 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - name: Access the private SDK
+        env:
+          SDK_READ_TOKEN: ${{ secrets.SDK_READ_TOKEN }}
+        run: |
+          git config --global url."https://x-access-token:${SDK_READ_TOKEN}@github.com/".insteadOf "ssh://git@github.com/"
+          git config --global url."https://x-access-token:${SDK_READ_TOKEN}@github.com/".insteadOf "git@github.com:"
+      - run: bun install --frozen-lockfile
+      - run: bun test
+      - run: bun run check
