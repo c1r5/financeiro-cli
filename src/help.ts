@@ -35,6 +35,9 @@ Commands:
   debt cost --month <n> --year <n> --horizons <list>
   settings show
   settings set [--currency <code>] [--general <n>] [--debts <n>] [--reserve <n>] [--margin <cents>]
+  import inspect --from <path> [--entity account|card|transaction|invoice|recurring|forecast|settings] [--id <id>] [--name <text>] [--category <name>] [--type <type>] [--card <id>] [--account <id>] [--reference YYYY-MM] [--active true|false] [--month YYYY-MM]
+  import plan --from <path> --entity account|card|transaction|invoice|recurring|forecast|settings [--id <id>] [--name <text>] [--category <name>] [--type <type>] [--card <id>] [--account <id>] [--reference YYYY-MM] [--active true|false] [--month YYYY-MM] [--with-deps] [--on-account <id>]
+  import apply --from <path> --entity account|card|transaction|invoice|recurring|forecast|settings [--id <id>] [--name <text>] [--category <name>] [--type <type>] [--card <id>] [--account <id>] [--reference YYYY-MM] [--active true|false] [--month YYYY-MM] [--with-deps] [--on-account <id>] [--allow-dangling]
 
 Amounts are integer cents. The file is --file, then FINANCEIRO_FILE, then ./financeiro.sqlite.
 Create commands accept --idempotency-key. The same key and command return the first result.`;

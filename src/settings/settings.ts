@@ -35,12 +35,16 @@ export class SettingsRepository {
 	}
 
 	read(): Settings {
+		return this.stored() ?? { ...defaultSettings };
+	}
+
+	stored(): Settings | null {
 		const row = this.db
 			.query<SettingsRow, []>(
 				'SELECT currency, general, debts, reserve, safety_margin FROM settings WHERE id = 1'
 			)
 			.get();
-		if (!row) return { ...defaultSettings };
+		if (!row) return null;
 		return {
 			currency: row.currency,
 			general: row.general,
