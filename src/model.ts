@@ -21,9 +21,74 @@ export interface Account {
 	createdAt: string;
 }
 
+export interface Card {
+	id: string;
+	name: string;
+	limit: number;
+	closingDay: number;
+	dueDay: number;
+	color: string;
+	active: boolean;
+	createdAt: string;
+}
+
+export interface Invoice {
+	reference: string;
+	balance: number;
+	closed: boolean;
+	due: string;
+	expected?: number;
+}
+
+export interface CardSummary {
+	used: number;
+	available: number;
+	reference: string;
+}
+
 export interface Installment {
 	current: number;
 	total: number;
+}
+
+export type RecurringType = 'income' | 'expense';
+
+export type RecurringStatus = 'expected' | 'paid';
+
+export interface Recurring {
+	id: string;
+	name: string;
+	category: string;
+	type: RecurringType;
+	expectedAmount: number;
+	dueDay: number;
+	startsOn: string;
+	endsOn?: string;
+	accountId: string;
+	cardId?: string;
+	active: boolean;
+	statusByMonth: Record<string, RecurringStatus>;
+	paymentsByMonth: Record<string, string>;
+	createdAt: string;
+}
+
+export type ForecastFrequency = 'once' | 'monthly' | 'daily';
+
+export interface Forecast {
+	id: string;
+	name: string;
+	amount: number;
+	type: RecurringType;
+	frequency: ForecastFrequency;
+	weekdays?: number[];
+	endsOn?: string;
+	statusByDay: Record<string, 'paid'>;
+	paymentsByDay: Record<string, string>;
+	amountsByDay: Record<string, number>;
+	excluded: string[];
+	date: string;
+	category: string;
+	accountId: string;
 }
 
 export interface Transaction {

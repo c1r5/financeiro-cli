@@ -1,4 +1,9 @@
-import type { AccountCategory, AccountType, TransactionType } from '../model';
+import type {
+	AccountCategory,
+	AccountType,
+	ForecastFrequency,
+	TransactionType
+} from '../model';
 
 export function accountType(value: string): AccountType {
 	if (value === 'checking' || value === 'savings') return value;
@@ -8,6 +13,16 @@ export function accountType(value: string): AccountType {
 export function accountCategory(value: string): AccountCategory {
 	if (value === 'reserve' || value === 'goal') return value;
 	throw new Error(`unknown account category: ${value}`);
+}
+
+export function forecastFrequency(value: string): ForecastFrequency {
+	if (value === 'once' || value === 'monthly' || value === 'daily') return value;
+	throw new Error(`unknown frequency: ${value}`);
+}
+
+export function flowType(value: string): 'income' | 'expense' {
+	if (value === 'income' || value === 'expense') return value;
+	throw new Error(`unknown flow: ${value}`);
 }
 
 export function transactionType(value: string): TransactionType {

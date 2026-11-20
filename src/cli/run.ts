@@ -12,6 +12,12 @@ import {
 } from '../sdk';
 import { SystemClock } from '../system-clock';
 import { UuidGenerator } from '../uuid-generator';
+import { runCard } from './card-command';
+import { runDebt, runDivision } from './division-command';
+import { runForecast } from './forecast-command';
+import { runProjection } from './projection-command';
+import { runRecurring } from './recurring-command';
+import { formatSettings, showSettings, updateSettings } from './settings-command';
 import { accountCategory, accountType, transactionType } from './vocabulary';
 
 export async function run(argv: string[]): Promise<number> {
@@ -27,7 +33,7 @@ export async function run(argv: string[]): Promise<number> {
 		const clock = new SystemClock();
 		const ids = new UuidGenerator();
 		try {
-			await execute(args, repository, clock, ids);
+			await execute(args, file, repository, clock, ids);
 		} finally {
 			repository.close();
 		}
@@ -41,6 +47,7 @@ export async function run(argv: string[]): Promise<number> {
 
 async function execute(
 	args: string[],
+	file: string,
 	repository: SqliteLedgerRepository,
 	clock: SystemClock,
 	ids: UuidGenerator
@@ -69,6 +76,39 @@ async function execute(
 		const id = args[1];
 		if (!id) throw new Error('missing id');
 		await deleteTransaction(repository, id);
+		return;
+	}
+	if (command === 'card') {
+		await runCard(args, file, repository, clock, ids);
+		return;
+	}
+	if (command === 'recurring') {
+		await runRecurring(args, file, repository, clock, ids);
+		return;
+	}
+	if (command === 'forecast') {
+		await runForecast(args, file, repository, clock, ids);
+		return;
+	}
+	if (command === 'projection') {
+		await runProjection(args, file, repository, clock);
+		return;
+	}
+	if (command === 'division') {
+		await runDivision(args, file, repository, clock);
+		return;
+	}
+	if (command === 'debt') {
+		await runDebt(args, file, repository, clock);
+		return;
+	}
+	if (command === 'settings' && args[1] === 'show') {
+		for (const line of formatSettings(showSettings(file))) console.log(line);
+		return;
+	}
+	if (command === 'settings' && args[1] === 'set') {
+		const saved = updateSettings(file, args.slice(2));
+		for (const line of formatSettings(saved)) console.log(line);
 		return;
 	}
 	throw new Error(`unknown command: ${command}`);
