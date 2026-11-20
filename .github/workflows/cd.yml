@@ -1,0 +1,49 @@
+name: cd
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - name: Access the private SDK
+        env:
+          SDK_READ_TOKEN: ${{ secrets.SDK_READ_TOKEN }}
+        run: |
+          git config --global url."https://x-access-token:${SDK_READ_TOKEN}@github.com/".insteadOf "ssh://git@github.com/"
+          git config --global url."https://x-access-token:${SDK_READ_TOKEN}@github.com/".insteadOf "git@github.com:"
+      - run: bun install --frozen-lockfile
+      - run: bun test
+      - run: bun run check
+      - name: Publish when the version tag is new
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="$(bun -e 'console.log(require("./package.json").version)')"
+          tag="v${version}"
+          if git ls-remote --tags origin "refs/tags/${tag}" | grep -q .; then
+            echo "tag ${tag} already exists"
+            exit 0
+          fi
+          bun build ./src/main.ts --compile --target=bun-linux-x64 --outfile financeiro-linux-x64
+          sha256sum financeiro-linux-x64 > financeiro-linux-x64.sha256
+          git tag "${tag}"
+          git push origin "refs/tags/${tag}"
+          gh release create "${tag}" \
+            financeiro-linux-x64 \
+            financeiro-linux-x64.sha256 \
+            --title "${tag}" \
+            --notes "Binário Linux x64 de financeiro ${version}."
