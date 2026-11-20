@@ -4,6 +4,7 @@ import {
 	listarTransacoes,
 	registrarTransacao,
 	removerTransacao,
+	validarConfiguracao,
 	type CategoriaConta,
 	type CategoriaTransacao,
 	type Conta,
@@ -17,6 +18,7 @@ import {
 	type Transacao
 } from 'financeiro-sdk';
 import type { SqliteLedgerRepository } from './ledger/sqlite-ledger-repository';
+import type { Settings } from './settings/settings';
 import type {
 	Account,
 	AccountCategory,
@@ -273,4 +275,17 @@ function fromSdkTransaction(transaction: Transacao): Transaction {
 	}
 	if (transaction.grupoParcelamentoId) mapped.installmentGroupId = transaction.grupoParcelamentoId;
 	return mapped;
+}
+
+export function checkSettings(settings: Settings): Settings {
+	validarConfiguracao({
+		moeda: settings.currency,
+		divisao: {
+			geral: settings.general,
+			dividas: settings.debts,
+			reserva: settings.reserve
+		},
+		margemSeguranca: settings.safetyMargin
+	});
+	return settings;
 }

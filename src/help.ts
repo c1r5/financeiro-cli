@@ -9,5 +9,7 @@ Commands:
   post --type income|expense|transfer --amount <cents> --date YYYY-MM-DD --description <text> --account <id> [--to <id>] [--category <name>]
   list [--month <n>] [--year <n>] [--type income|expense|transfer] [--text <query>]
   remove <id>
+  settings show
+  settings set [--currency <code>] [--general <n>] [--debts <n>] [--reserve <n>] [--margin <cents>]
 
 Amounts are integer cents. The default file is ./financeiro.sqlite.`;
