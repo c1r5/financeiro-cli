@@ -72,6 +72,25 @@ export interface Recurring {
 	createdAt: string;
 }
 
+export type ForecastFrequency = 'once' | 'monthly' | 'daily';
+
+export interface Forecast {
+	id: string;
+	name: string;
+	amount: number;
+	type: RecurringType;
+	frequency: ForecastFrequency;
+	weekdays?: number[];
+	endsOn?: string;
+	statusByDay: Record<string, 'paid'>;
+	paymentsByDay: Record<string, string>;
+	amountsByDay: Record<string, number>;
+	excluded: string[];
+	date: string;
+	category: string;
+	accountId: string;
+}
+
 export interface Transaction {
 	id: string;
 	date: string;

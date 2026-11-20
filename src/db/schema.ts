@@ -54,6 +54,22 @@ export function ensureSchema(db: Database): void {
 		payments_by_month TEXT NOT NULL,
 		created_at TEXT NOT NULL
 	)`);
+	db.run(`CREATE TABLE IF NOT EXISTS forecasts (
+		id TEXT PRIMARY KEY,
+		name TEXT NOT NULL,
+		amount INTEGER NOT NULL,
+		type TEXT NOT NULL,
+		frequency TEXT NOT NULL,
+		weekdays TEXT,
+		ends_on TEXT,
+		status_by_day TEXT NOT NULL,
+		payments_by_day TEXT NOT NULL,
+		amounts_by_day TEXT NOT NULL,
+		excluded_dates TEXT NOT NULL,
+		date TEXT NOT NULL,
+		category TEXT NOT NULL,
+		account_id TEXT NOT NULL
+	)`);
 	db.run(`CREATE TABLE IF NOT EXISTS settings (
 		id INTEGER PRIMARY KEY CHECK (id = 1),
 		currency TEXT NOT NULL,

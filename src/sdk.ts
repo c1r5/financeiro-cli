@@ -9,11 +9,20 @@ import {
 	registrarGasto,
 	registrarGastoParcelado,
 	registrarPagamento,
+	aplicarASerie,
+	contaNaProjecao,
 	criarRecorrente,
 	dataDaOcorrencia,
+	definirValorDoDia,
+	excluirOcorrencia,
 	listarPendentesNoMes,
 	marcarComoPaga,
 	marcarComoPrevista,
+	marcarDiaPago,
+	ocorreNoDia,
+	valorNoDia,
+	type Frequencia,
+	type Previsao,
 	registrarTransacao,
 	removerTransacao,
 	validarConfiguracao,
@@ -39,6 +48,8 @@ import type {
 	AccountType,
 	Card,
 	CardSummary,
+	Forecast,
+	ForecastFrequency,
 	Invoice,
 	Recurring,
 	RecurringStatus,
@@ -601,6 +612,137 @@ function fromSdkRecurring(recurring: Recorrente): Recurring {
 	};
 	if (recurring.dataFim) mapped.endsOn = recurring.dataFim;
 	if (recurring.cartaoId) mapped.cardId = recurring.cartaoId;
+	return mapped;
+}
+
+const frequencyToSdk: Record<ForecastFrequency, Frequencia> = {
+	once: 'pontual',
+	monthly: 'mensal',
+	daily: 'diario'
+};
+
+const frequencyFromSdk: Record<Frequencia, ForecastFrequency> = {
+	pontual: 'once',
+	mensal: 'monthly',
+	diario: 'daily'
+};
+
+export interface ForecastDraft {
+	id: string;
+	name: string;
+	amount: number;
+	type: 'income' | 'expense';
+	frequency: ForecastFrequency;
+	date: string;
+	category: string;
+	accountId: string;
+	weekdays?: number[];
+	endsOn?: string;
+}
+
+export function createForecast(input: ForecastDraft): Forecast {
+	const forecast: Forecast = {
+		id: input.id,
+		name: input.name,
+		amount: input.amount,
+		type: input.type,
+		frequency: input.frequency,
+		date: input.date,
+		category: input.category,
+		accountId: input.accountId,
+		statusByDay: {},
+		paymentsByDay: {},
+		amountsByDay: {},
+		excluded: []
+	};
+	if (input.weekdays) forecast.weekdays = input.weekdays;
+	if (input.endsOn) forecast.endsOn = input.endsOn;
+	return forecast;
+}
+
+export function forecastOccurs(forecast: Forecast, date: string): boolean {
+	return ocorreNoDia(toSdkForecast(forecast), date);
+}
+
+export function forecastAmount(forecast: Forecast, date: string): number {
+	return valorNoDia(toSdkForecast(forecast), date);
+}
+
+export function forecastCounts(forecast: Forecast, date: string, start: string): boolean {
+	return contaNaProjecao(toSdkForecast(forecast), date, start);
+}
+
+export function excludeForecastDate(forecast: Forecast, date: string): Forecast {
+	return fromSdkForecast(excluirOcorrencia(toSdkForecast(forecast), date), forecast.accountId);
+}
+
+export function editForecastDay(forecast: Forecast, date: string, amount: number): Forecast {
+	return fromSdkForecast(
+		definirValorDoDia(toSdkForecast(forecast), date, amount),
+		forecast.accountId
+	);
+}
+
+export function editForecastSeries(forecast: Forecast, amount: number): Forecast {
+	const original = toSdkForecast(forecast);
+	const edited = toSdkForecast({ ...forecast, amount });
+	return fromSdkForecast(aplicarASerie(original, edited), forecast.accountId);
+}
+
+export function markForecastPaid(forecast: Forecast, date: string, transactionId: string): Forecast {
+	return fromSdkForecast(
+		marcarDiaPago(toSdkForecast(forecast), date, transactionId),
+		forecast.accountId
+	);
+}
+
+function toSdkForecast(forecast: Forecast): Previsao {
+	const mapped: Previsao = {
+		id: forecast.id,
+		nome: forecast.name,
+		valor: forecast.amount,
+		tipo: forecast.type === 'income' ? 'entrada' : 'saida',
+		frequencia: frequencyToSdk[forecast.frequency],
+		data: forecast.date,
+		categoria: forecast.category as CategoriaTransacao
+	};
+	if (forecast.weekdays) mapped.diasSemana = forecast.weekdays;
+	if (forecast.endsOn) mapped.dataFim = forecast.endsOn;
+	if (Object.keys(forecast.statusByDay).length > 0) {
+		const statusPorDia: Record<string, 'paga'> = {};
+		for (const day of Object.keys(forecast.statusByDay)) statusPorDia[day] = 'paga';
+		mapped.statusPorDia = statusPorDia;
+	}
+	if (Object.keys(forecast.paymentsByDay).length > 0) {
+		mapped.pagamentosPorDia = { ...forecast.paymentsByDay };
+	}
+	if (Object.keys(forecast.amountsByDay).length > 0) {
+		mapped.valoresPorDia = { ...forecast.amountsByDay };
+	}
+	if (forecast.excluded.length > 0) mapped.ocorrenciasExcluidas = [...forecast.excluded];
+	return mapped;
+}
+
+function fromSdkForecast(forecast: Previsao, accountId: string): Forecast {
+	const mapped: Forecast = {
+		id: forecast.id,
+		name: forecast.nome,
+		amount: forecast.valor,
+		type: forecast.tipo === 'entrada' ? 'income' : 'expense',
+		frequency: frequencyFromSdk[forecast.frequencia],
+		date: forecast.data,
+		category: forecast.categoria ?? '',
+		accountId,
+		statusByDay: {},
+		paymentsByDay: { ...(forecast.pagamentosPorDia ?? {}) },
+		amountsByDay: { ...(forecast.valoresPorDia ?? {}) },
+		excluded: [...(forecast.ocorrenciasExcluidas ?? [])]
+	};
+	if (forecast.diasSemana) mapped.weekdays = forecast.diasSemana;
+	if (forecast.dataFim) mapped.endsOn = forecast.dataFim;
+	if (forecast.statusPorDia) {
+		for (const day of Object.keys(forecast.statusPorDia)) mapped.statusByDay[day] = 'paid';
+	}
 	return mapped;
 }
 

@@ -20,6 +20,11 @@ Commands:
   recurring list --month YYYY-MM
   recurring pay --id <id> --month YYYY-MM [--amount <cents>] [--account <id>] [--card <id>]
   recurring revert --id <id> --month YYYY-MM
+  forecast add --type income|expense --frequency once|monthly|daily --name <name> --amount <cents> --date YYYY-MM-DD --category <name> --account <id> [--until YYYY-MM-DD] [--weekdays 0,1,2,3,4,5,6]
+  forecast exclude --id <id> --date YYYY-MM-DD
+  forecast pay --id <id> --date YYYY-MM-DD [--account <id>]
+  forecast edit --id <id> --date YYYY-MM-DD --amount <cents>
+  forecast edit --id <id> --amount <cents> --all
   settings show
   settings set [--currency <code>] [--general <n>] [--debts <n>] [--reserve <n>] [--margin <cents>]
 
