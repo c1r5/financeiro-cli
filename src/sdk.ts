@@ -10,7 +10,10 @@ import {
 	registrarGastoParcelado,
 	registrarPagamento,
 	aplicarASerie,
+	calcularDivisao,
 	calcularGastoDiarioDisponivel,
+	calcularReservaAcumulada,
+	calcularUsoDividas,
 	contaNaProjecao,
 	criarRecorrente,
 	dataDaOcorrencia,
@@ -21,6 +24,7 @@ import {
 	marcarComoPrevista,
 	marcarDiaPago,
 	ocorreNoDia,
+	projetarCustoDividas,
 	projetarSaldo,
 	valorNoDia,
 	type Frequencia,
@@ -35,6 +39,8 @@ import {
 	type Conta,
 	type EntradaDeTransacao,
 	type FiltroDeTransacoes,
+	type HorizonteCustoDividas,
+	type LinhaDivida,
 	type GeradorDeId,
 	type Relogio,
 	type RepositorioDoLivro,
@@ -789,6 +795,136 @@ export function projectBalance(input: {
 function eventName(event: { nome: string }): string {
 	if (event.nome.startsWith('Fatura ')) return `Invoice ${event.nome.slice('Fatura '.length)}`;
 	return event.nome;
+}
+
+export interface IncomeSplit {
+	general: number;
+	debts: number;
+	reserve: number;
+	income: number;
+}
+
+export interface DebtLine {
+	kind: 'payable' | 'paid';
+	date: string;
+	amount: number;
+	description: string;
+	reference: string;
+}
+
+export interface DebtHorizon {
+	months: number;
+	cost: number;
+	bucket: number;
+	surplus: number;
+}
+
+export function divideIncome(input: {
+	recurrings: Recurring[];
+	forecasts: Forecast[];
+	month: number;
+	year: number;
+	settings: Settings;
+}): IncomeSplit {
+	const split = calcularDivisao({
+		recorrentes: input.recurrings.map(toSdkRecurring),
+		previsoes: input.forecasts.map(toSdkForecast),
+		mes: input.month,
+		ano: input.year,
+		divisao: {
+			geral: input.settings.general,
+			dividas: input.settings.debts,
+			reserva: input.settings.reserve
+		}
+	});
+	return {
+		general: split.geral,
+		debts: split.dividas,
+		reserve: split.reserva,
+		income: split.totalEntradas
+	};
+}
+
+export function listDebts(input: {
+	recurrings: Recurring[];
+	forecasts: Forecast[];
+	cards: Card[];
+	transactions: Transaction[];
+	month: number;
+	year: number;
+	today: string;
+}): DebtLine[] {
+	const usage = calcularUsoDividas({
+		recorrentes: input.recurrings.map(toSdkRecurring),
+		previsoes: input.forecasts.map(toSdkForecast),
+		cartoes: input.cards.map(toSdkCard),
+		transacoes: input.transactions.map(toSdkTransaction),
+		mes: input.month,
+		ano: input.year,
+		hoje: input.today
+	});
+	return [
+		...usage.aPagar.map((line) => debtLine('payable', line)),
+		...usage.pagas.map((line) => debtLine('paid', line))
+	];
+}
+
+export function debtHorizons(input: {
+	recurrings: Recurring[];
+	forecasts: Forecast[];
+	month: number;
+	year: number;
+	settings: Settings;
+	horizons: number[];
+}): DebtHorizon[] {
+	const rows = projetarCustoDividas({
+		recorrentes: input.recurrings.map(toSdkRecurring),
+		previsoes: input.forecasts.map(toSdkForecast),
+		divisao: {
+			geral: input.settings.general,
+			dividas: input.settings.debts,
+			reserva: input.settings.reserve
+		},
+		mes: input.month,
+		ano: input.year,
+		horizontes: input.horizons
+	});
+	return rows.map(debtHorizon);
+}
+
+export async function savedReserve(
+	repository: SqliteLedgerRepository,
+	clock: SystemClock
+): Promise<number> {
+	const balances = await consultarSaldos(toSdkRepository(repository), toSdkClock(clock));
+	return calcularReservaAcumulada(
+		balances.contas.map((item) => item.conta),
+		balances.contas
+	);
+}
+
+function debtLine(kind: 'payable' | 'paid', line: LinhaDivida): DebtLine {
+	return {
+		kind,
+		date: line.data,
+		amount: line.valor,
+		description: publicName(line.descricao),
+		reference: line.id
+	};
+}
+
+function debtHorizon(row: HorizonteCustoDividas): DebtHorizon {
+	return {
+		months: row.meses,
+		cost: row.custoDividas,
+		bucket: row.baldeAcumulado,
+		surplus: row.excedente
+	};
+}
+
+function publicName(name: string): string {
+	if (name.startsWith('Fatura ')) return `Invoice ${name.slice('Fatura '.length)}`;
+	return name;
 }
 
 export function checkSettings(settings: Settings): Settings {

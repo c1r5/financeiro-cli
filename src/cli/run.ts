@@ -13,6 +13,7 @@ import {
 import { SystemClock } from '../system-clock';
 import { UuidGenerator } from '../uuid-generator';
 import { runCard } from './card-command';
+import { runDebt, runDivision } from './division-command';
 import { runForecast } from './forecast-command';
 import { runProjection } from './projection-command';
 import { runRecurring } from './recurring-command';
@@ -91,6 +92,14 @@ async function execute(
 	}
 	if (command === 'projection') {
 		await runProjection(args, file, repository, clock);
+		return;
+	}
+	if (command === 'division') {
+		await runDivision(args, file, repository, clock);
+		return;
+	}
+	if (command === 'debt') {
+		await runDebt(args, file, repository, clock);
 		return;
 	}
 	if (command === 'settings' && args[1] === 'show') {

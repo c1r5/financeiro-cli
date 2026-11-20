@@ -26,6 +26,9 @@ Commands:
   forecast edit --id <id> --date YYYY-MM-DD --amount <cents>
   forecast edit --id <id> --amount <cents> --all
   projection show --days <n>
+  division show --month <n> --year <n>
+  debt list --month <n> --year <n>
+  debt cost --month <n> --year <n> --horizons <list>
   settings show
   settings set [--currency <code>] [--general <n>] [--debts <n>] [--reserve <n>] [--margin <cents>]
 
