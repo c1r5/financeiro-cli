@@ -36,7 +36,8 @@ Commands:
   settings show
   settings set [--currency <code>] [--general <n>] [--debts <n>] [--reserve <n>] [--margin <cents>]
 
-Amounts are integer cents. The file is --file, then FINANCEIRO_FILE, then ./financeiro.sqlite.`;
+Amounts are integer cents. The file is --file, then FINANCEIRO_FILE, then ./financeiro.sqlite.
+Create commands accept --idempotency-key. The same key and command return the first result.`;
 
 export function usage(args: string[]): string {
 	const tokens: string[] = [];

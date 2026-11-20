@@ -113,6 +113,21 @@ export class SqliteLedgerRepository {
 		this.db.query('DELETE FROM transactions WHERE id = ?').run(id);
 	}
 
+	findIdempotency(key: string): { command: string; result: string } | undefined {
+		const row = this.db
+			.query<{ command: string; result: string }, [string]>(
+				'SELECT command, result FROM idempotency_keys WHERE key = ?'
+			)
+			.get(key);
+		return row ?? undefined;
+	}
+
+	saveIdempotency(key: string, command: string, result: string): void {
+		this.db
+			.query('INSERT INTO idempotency_keys (key, command, result) VALUES (?, ?, ?)')
+			.run(key, command, result);
+	}
+
 	close(): void {
 		this.db.close();
 	}

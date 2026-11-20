@@ -48,7 +48,21 @@ export async function run(argv: string[]): Promise<number> {
 		const clock = new SystemClock();
 		const ids = new UuidGenerator();
 		try {
-			await execute(args, file, repository, clock, ids, reply);
+			const key = option(args, '--idempotency-key');
+			if (key === '') throw new Error('missing value for --idempotency-key');
+			const name = commandName(args);
+			if (key !== undefined && !IDEMPOTENT.has(name)) {
+				throw new Error('invalid idempotency command');
+			}
+			const stored = key ? repository.findIdempotency(key) : undefined;
+			if (stored) {
+				if (stored.command !== name) throw new Error('idempotency_conflict');
+				const payload = JSON.parse(stored.result) as StoredResult;
+				reply(storedLines(name, payload), payload);
+			} else {
+				await execute(args, file, repository, clock, ids, reply);
+				if (key) repository.saveIdempotency(key, name, JSON.stringify(data));
+			}
 		} finally {
 			repository.close();
 		}
@@ -57,6 +71,41 @@ export async function run(argv: string[]): Promise<number> {
 	} catch (error) {
 		return fail(json, error);
 	}
+}
+
+const IDEMPOTENT = new Set([
+	'account open',
+	'post',
+	'card open',
+	'card base',
+	'card purchase',
+	'card installment',
+	'card pay',
+	'recurring add',
+	'recurring pay',
+	'forecast add',
+	'forecast pay'
+]);
+
+function commandName(args: string[]): string {
+	const head = args[0] ?? '';
+	const sub = args[1];
+	if (sub && !sub.startsWith('--')) return `${head} ${sub}`;
+	return head;
+}
+
+function storedLines(command: string, data: StoredResult): string[] {
+	if (command === 'card installment') {
+		return (data.parcels ?? []).map((parcel) => `${parcel.id} ${parcel.amount}`);
+	}
+	if (command === 'card pay') return [`${data.id} ${data.type}`];
+	return [String(data.id)];
+}
+
+interface StoredResult {
+	id?: string;
+	type?: string;
+	parcels?: Array<{ id: string; amount: number }>;
 }
 
 async function execute(
