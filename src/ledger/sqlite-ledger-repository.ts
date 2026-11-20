@@ -135,6 +135,10 @@ export class SqliteLedgerRepository implements RepositorioDoLivro {
 	async removerTransacao(id: string): Promise<void> {
 		this.db.query('DELETE FROM transactions WHERE id = ?').run(id);
 	}
+
+	close(): void {
+		this.db.close();
+	}
 }
 
 function contaDe(row: AccountRow): Conta {
