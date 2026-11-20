@@ -7,7 +7,7 @@ description: >
 
 # financeiro
 
-O binário é `financeiro` e fica no `PATH`. A instalação é o binário da release ou `bun link` neste repositório. Defina `FINANCEIRO_FILE` com o caminho do SQLite. Cada chamada leva `--json` e `--file`, ou herda `FINANCEIRO_FILE`. Sem os dois, o CLI grava `./financeiro.sqlite` no diretório em que o processo abriu.
+O binário é `financeiro` e fica no `PATH`. A instalação e a ordem de leitura estão em `README.md`. Cada pasta em `src/` tem o README das operações daquele módulo. Defina `FINANCEIRO_FILE` com o caminho do SQLite. Cada chamada leva `--json` e `--file`, ou herda `FINANCEIRO_FILE`. Sem os dois, o CLI grava `./financeiro.sqlite` no diretório em que o processo abriu.
 
 Valor é centavo inteiro. R$ 10,50 entra como `1050`. A categoria vem de `financeiro category list --json`. Um nome que não está nessa lista falha na escrita.
 
