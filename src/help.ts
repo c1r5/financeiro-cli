@@ -1,7 +1,7 @@
 export const HELP = `financeiro — ledger on SQLite
 
 Usage:
-  financeiro [--file <path>] <command>
+  financeiro [--file <path>] [--json] <command>
 
 Commands:
   account open --type checking|savings --name <name> --balance <cents> [--linked <id>] [--category reserve|goal]
@@ -32,4 +32,28 @@ Commands:
   settings show
   settings set [--currency <code>] [--general <n>] [--debts <n>] [--reserve <n>] [--margin <cents>]
 
-Amounts are integer cents. The default file is ./financeiro.sqlite.`;
+Amounts are integer cents. The file is --file, then FINANCEIRO_FILE, then ./financeiro.sqlite.`;
+
+export function usage(args: string[]): string {
+	const tokens: string[] = [];
+	for (let index = 0; index < args.length; index++) {
+		const token = args[index];
+		if (token === '--help' || token === '-h' || token === '--json') continue;
+		if (token === '--file') {
+			index++;
+			continue;
+		}
+		tokens.push(token);
+	}
+	const command = tokens[0];
+	if (!command) return HELP;
+	const action = tokens[1];
+	const commands = HELP.split('\n').filter((line) => line.startsWith('  '));
+	const matches = commands.filter((line) => {
+		const text = line.trim();
+		if (action && !action.startsWith('--')) return text.startsWith(`${command} ${action}`);
+		return text === command || text.startsWith(`${command} `);
+	});
+	if (matches.length === 0) return HELP;
+	return matches.join('\n');
+}

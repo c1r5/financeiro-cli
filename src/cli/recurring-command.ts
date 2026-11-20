@@ -13,6 +13,7 @@ import {
 } from '../sdk';
 import type { SystemClock } from '../system-clock';
 import type { UuidGenerator } from '../uuid-generator';
+import type { Reply } from './output';
 import { flowType } from './vocabulary';
 
 export async function runRecurring(
@@ -20,7 +21,8 @@ export async function runRecurring(
 	file: string,
 	ledger: SqliteLedgerRepository,
 	clock: SystemClock,
-	ids: UuidGenerator
+	ids: UuidGenerator,
+	reply: Reply
 ): Promise<void> {
 	const action = args[1];
 	const flags = args.slice(2);
@@ -44,14 +46,24 @@ export async function runRecurring(
 				cardId
 			});
 			recurrings.save(recurring);
-			console.log(recurring.id);
+			reply([recurring.id], { id: recurring.id });
 			return;
 		}
 		if (action === 'list') {
 			const month = yearMonth(required(flags, '--month'));
-			for (const item of pendingRecurrings(recurrings.list(), month)) {
-				console.log(`${item.id} ${item.date} ${item.name} ${item.amount}`);
-			}
+			const pending = pendingRecurrings(recurrings.list(), month);
+			reply(
+				pending.map((item) => `${item.id} ${item.date} ${item.name} ${item.amount}`),
+				{
+					month,
+					pending: pending.map((item) => ({
+						id: item.id,
+						date: item.date,
+						name: item.name,
+						amount: item.amount
+					}))
+				}
+			);
 			return;
 		}
 		if (action === 'pay') {
@@ -88,7 +100,7 @@ export async function runRecurring(
 				});
 			}
 			recurrings.save(markRecurringPaid(recurring, month, transaction.id));
-			console.log(transaction.id);
+			reply([transaction.id], { id: transaction.id });
 			return;
 		}
 		if (action === 'revert') {
@@ -97,6 +109,7 @@ export async function runRecurring(
 			const paymentId = recurring.paymentsByMonth[month];
 			if (paymentId) await ledger.deleteTransaction(paymentId);
 			recurrings.save(markRecurringExpected(recurring, month));
+			reply([], { id: recurring.id, month });
 			return;
 		}
 		throw new Error(`unknown recurring command: ${action}`);

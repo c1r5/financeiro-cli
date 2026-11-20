@@ -11,6 +11,7 @@ import {
 } from '../sdk';
 import type { SystemClock } from '../system-clock';
 import type { UuidGenerator } from '../uuid-generator';
+import type { Reply } from './output';
 import { flowType, forecastFrequency } from './vocabulary';
 
 export async function runForecast(
@@ -18,7 +19,8 @@ export async function runForecast(
 	file: string,
 	ledger: SqliteLedgerRepository,
 	clock: SystemClock,
-	ids: UuidGenerator
+	ids: UuidGenerator,
+	reply: Reply
 ): Promise<void> {
 	const action = args[1];
 	const flags = args.slice(2);
@@ -45,12 +47,13 @@ export async function runForecast(
 				endsOn: until
 			});
 			forecasts.save(forecast);
-			console.log(forecast.id);
+			reply([forecast.id], { id: forecast.id });
 			return;
 		}
 		if (action === 'exclude') {
 			const forecast = forecasts.find(required(flags, '--id'));
 			forecasts.save(excludeForecastDate(forecast, required(flags, '--date')));
+			reply([], { id: forecast.id });
 			return;
 		}
 		if (action === 'pay') {
@@ -66,7 +69,7 @@ export async function runForecast(
 				accountId: option(flags, '--account') ?? forecast.accountId
 			});
 			forecasts.save(markForecastPaid(forecast, date, transaction.id));
-			console.log(transaction.id);
+			reply([transaction.id], { id: transaction.id });
 			return;
 		}
 		if (action === 'edit') {
@@ -77,11 +80,13 @@ export async function runForecast(
 			if (all && date) throw new Error('use either --date or --all');
 			if (all) {
 				forecasts.save(editForecastSeries(forecast, amount));
+				reply([], { id: forecast.id });
 				return;
 			}
 			if (!date) throw new Error('missing --date');
 			if (forecast.frequency !== 'daily') throw new Error('a per-day amount is only for a daily series');
 			forecasts.save(editForecastDay(forecast, date, amount));
+			reply([], { id: forecast.id });
 			return;
 		}
 		throw new Error(`unknown forecast command: ${action}`);
