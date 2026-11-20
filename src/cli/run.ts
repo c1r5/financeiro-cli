@@ -1,18 +1,18 @@
-import {
-	abrirConta,
-	consultarSaldos,
-	listarTransacoes,
-	registrarTransacao,
-	removerTransacao,
-	type CategoriaTransacao,
-	type EntradaDeTransacao,
-	type FiltroDeTransacoes
-} from 'financeiro-sdk';
 import { HELP } from '../help';
 import { SqliteLedgerRepository } from '../ledger/sqlite-ledger-repository';
+import type { TransactionType } from '../model';
+import {
+	deleteTransaction,
+	listLedger,
+	openAccount,
+	postTransaction,
+	readBalances,
+	type ListFilter,
+	type PostInput
+} from '../sdk';
 import { SystemClock } from '../system-clock';
 import { UuidGenerator } from '../uuid-generator';
-import { accountCategory, accountType, cliType, transactionType } from './vocabulary';
+import { accountCategory, accountType, transactionType } from './vocabulary';
 
 export async function run(argv: string[]): Promise<number> {
 	const args = [...argv];
@@ -22,14 +22,14 @@ export async function run(argv: string[]): Promise<number> {
 	}
 
 	try {
-		const arquivo = option(args, '--file') ?? 'financeiro.sqlite';
-		const repo = new SqliteLedgerRepository(arquivo);
+		const file = option(args, '--file') ?? 'financeiro.sqlite';
+		const repository = new SqliteLedgerRepository(file);
 		const clock = new SystemClock();
 		const ids = new UuidGenerator();
 		try {
-			await executar(args, repo, clock, ids);
+			await execute(args, repository, clock, ids);
 		} finally {
-			repo.close();
+			repository.close();
 		}
 		return 0;
 	} catch (error) {
@@ -39,108 +39,113 @@ export async function run(argv: string[]): Promise<number> {
 	}
 }
 
-async function executar(
+async function execute(
 	args: string[],
-	repo: SqliteLedgerRepository,
+	repository: SqliteLedgerRepository,
 	clock: SystemClock,
 	ids: UuidGenerator
 ): Promise<void> {
 	const command = args[0];
 	if (command === 'account' && args[1] === 'open') {
-		await abrir(args.slice(2), repo, clock, ids);
+		await open(args.slice(2), repository, clock, ids);
 		return;
 	}
 	if (command === 'balance') {
-		const saldos = await consultarSaldos(repo, clock);
-		console.log(`available ${saldos.totalCorrente}`);
-		console.log(`savings ${saldos.totalPoupanca}`);
-		console.log(`total ${saldos.total}`);
+		const balances = await readBalances(repository, clock);
+		console.log(`available ${balances.available}`);
+		console.log(`savings ${balances.savings}`);
+		console.log(`total ${balances.total}`);
 		return;
 	}
 	if (command === 'post') {
-		await lancar(args.slice(1), repo, clock, ids);
+		await post(args.slice(1), repository, clock, ids);
 		return;
 	}
 	if (command === 'list') {
-		await listar(args.slice(1), repo);
+		await list(args.slice(1), repository);
 		return;
 	}
 	if (command === 'remove') {
 		const id = args[1];
 		if (!id) throw new Error('missing id');
-		await removerTransacao(repo, id);
+		await deleteTransaction(repository, id);
 		return;
 	}
 	throw new Error(`unknown command: ${command}`);
 }
 
-async function abrir(
+async function open(
 	flags: string[],
-	repo: SqliteLedgerRepository,
+	repository: SqliteLedgerRepository,
 	clock: SystemClock,
 	ids: UuidGenerator
 ): Promise<void> {
-	const tipo = accountType(required(flags, '--type'));
-	const nome = required(flags, '--name');
-	const saldoInicial = cents(required(flags, '--balance'));
-	const linked = option(flags, '--linked');
 	const category = option(flags, '--category');
-	const aberto = abrirConta({
-		id: ids.novoId(),
-		lancamentoId: ids.novoId(),
-		criadoEm: clock.agora(),
-		hoje: clock.hoje(),
-		tipo,
-		nome,
-		descricao: '',
-		saldoInicial,
-		contaVinculadaId: linked,
-		categoria: category ? accountCategory(category) : undefined
+	const linked = option(flags, '--linked');
+	const opened = openAccount({
+		id: ids.newId(),
+		transactionId: ids.newId(),
+		createdAt: clock.now(),
+		today: clock.today(),
+		type: accountType(required(flags, '--type')),
+		name: required(flags, '--name'),
+		description: '',
+		openingBalance: cents(required(flags, '--balance')),
+		linkedAccountId: linked,
+		category: category ? accountCategory(category) : undefined
 	});
-	await repo.gravarConta(aberto.conta);
-	if (aberto.lancamento) await repo.incluirTransacao(aberto.lancamento);
-	console.log(aberto.conta.id);
+	await repository.saveAccount(opened.account);
+	if (opened.transaction) await repository.insertTransaction(opened.transaction);
+	console.log(opened.account.id);
 }
 
-async function lancar(
+async function post(
 	flags: string[],
-	repo: SqliteLedgerRepository,
+	repository: SqliteLedgerRepository,
 	clock: SystemClock,
 	ids: UuidGenerator
 ): Promise<void> {
-	const entrada: EntradaDeTransacao = {
-		data: required(flags, '--date'),
-		descricao: required(flags, '--description'),
-		tipo: transactionType(required(flags, '--type')),
-		valor: cents(required(flags, '--amount')),
-		categoria: (option(flags, '--category') ?? 'outros') as CategoriaTransacao,
-		contaId: required(flags, '--account')
+	const input: PostInput = {
+		date: required(flags, '--date'),
+		description: required(flags, '--description'),
+		type: transactionType(required(flags, '--type')),
+		amount: cents(required(flags, '--amount')),
+		category: option(flags, '--category') ?? 'outros',
+		accountId: required(flags, '--account')
 	};
-	const destino = option(flags, '--to');
-	if (destino) entrada.contaDestinoId = destino;
-	const transacao = await registrarTransacao(repo, clock, ids, entrada);
-	console.log(transacao.id);
+	const destination = option(flags, '--to');
+	if (destination) input.destinationAccountId = destination;
+	const transaction = await postTransaction(repository, clock, ids, input);
+	console.log(transaction.id);
 }
 
-async function listar(flags: string[], repo: SqliteLedgerRepository): Promise<void> {
-	const filtro: FiltroDeTransacoes = {};
+async function list(flags: string[], repository: SqliteLedgerRepository): Promise<void> {
+	const filter: ListFilter = {};
 	const month = option(flags, '--month');
 	const year = option(flags, '--year');
 	if (month !== undefined && year !== undefined) {
-		filtro.mes = Number(month);
-		filtro.ano = Number(year);
+		filter.month = Number(month);
+		filter.year = Number(year);
 	}
 	const type = option(flags, '--type');
-	if (type) filtro.tipo = transactionType(type);
+	if (type) filter.type = transactionType(type);
 	const text = option(flags, '--text');
-	if (text) filtro.texto = text;
-	const lista = await listarTransacoes(repo, filtro);
-	for (const transacao of lista) {
-		const tipo = cliType(transacao.tipo);
-		console.log(
-			`${transacao.id} ${transacao.data} ${tipo} ${transacao.valor} ${transacao.descricao}`
-		);
+	if (text) filter.text = text;
+	const rows = await listLedger(repository, filter);
+	for (const transaction of rows) {
+		console.log(formatTransaction(transaction));
 	}
+}
+
+function formatTransaction(transaction: {
+	id: string;
+	date: string;
+	type: TransactionType;
+	amount: number;
+	description: string;
+}): string {
+	const { id, date, type, amount, description } = transaction;
+	return `${id} ${date} ${type} ${amount} ${description}`;
 }
 
 function option(args: string[], name: string): string | undefined {

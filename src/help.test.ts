@@ -1,9 +1,9 @@
 import { expect, test } from 'bun:test';
-import { calcularSaldos } from 'financeiro-sdk';
+import { calcularSaldos as calculateBalances } from 'financeiro-sdk';
 import { HELP } from './help';
 
-test('a ajuda lista os comandos sem abrir banco', async () => {
-	expect(typeof calcularSaldos).toBe('function');
+test('help lists the commands without opening a database', async () => {
+	expect(typeof calculateBalances).toBe('function');
 	const root = import.meta.dir + '/..';
 	const proc = Bun.spawn(['bun', 'src/main.ts'], {
 		cwd: root,
@@ -15,11 +15,11 @@ test('a ajuda lista os comandos sem abrir banco', async () => {
 	expect(stdout).toBe(`${HELP}\n`);
 	expect(await Bun.file(`${root}/financeiro.sqlite`).exists()).toBe(false);
 
-	const ajuda = Bun.spawn(['bun', 'src/main.ts', '--help'], {
+	const help = Bun.spawn(['bun', 'src/main.ts', '--help'], {
 		cwd: root,
 		stdout: 'pipe',
 		stderr: 'pipe'
 	});
-	expect(await new Response(ajuda.stdout).text()).toBe(`${HELP}\n`);
-	expect(await ajuda.exited).toBe(0);
+	expect(await new Response(help.stdout).text()).toBe(`${HELP}\n`);
+	expect(await help.exited).toBe(0);
 });

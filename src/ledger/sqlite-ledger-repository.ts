@@ -1,12 +1,11 @@
 import { Database } from 'bun:sqlite';
-import type { CategoriaConta, Conta, TipoConta } from 'financeiro-sdk';
-import type { RepositorioDoLivro } from 'financeiro-sdk';
 import type {
-	CategoriaTransacao,
-	Parcela,
-	TipoTransacao,
-	Transacao
-} from 'financeiro-sdk';
+	Account,
+	AccountCategory,
+	AccountType,
+	Transaction,
+	TransactionType
+} from '../model';
 
 interface AccountRow {
 	id: string;
@@ -37,11 +36,11 @@ interface TransactionRow {
 	created_at: string;
 }
 
-export class SqliteLedgerRepository implements RepositorioDoLivro {
+export class SqliteLedgerRepository {
 	private readonly db: Database;
 
-	constructor(arquivo: string) {
-		this.db = new Database(arquivo);
+	constructor(file: string) {
+		this.db = new Database(file);
 		this.db.run(`CREATE TABLE IF NOT EXISTS accounts (
 			id TEXT PRIMARY KEY,
 			type TEXT NOT NULL,
@@ -71,12 +70,14 @@ export class SqliteLedgerRepository implements RepositorioDoLivro {
 		)`);
 	}
 
-	async listarContas(): Promise<Conta[]> {
-		const rows = this.db.query<AccountRow, []>('SELECT * FROM accounts ORDER BY created_at, id').all();
-		return rows.map(contaDe);
+	async listAccounts(): Promise<Account[]> {
+		const rows = this.db
+			.query<AccountRow, []>('SELECT * FROM accounts ORDER BY created_at, id')
+			.all();
+		return rows.map(accountFromRow);
 	}
 
-	async gravarConta(conta: Conta): Promise<void> {
+	async saveAccount(account: Account): Promise<void> {
 		this.db
 			.query(
 				`INSERT INTO accounts (
@@ -85,54 +86,54 @@ export class SqliteLedgerRepository implements RepositorioDoLivro {
 				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
 			)
 			.run(
-				conta.id,
-				conta.tipo,
-				conta.nome,
-				conta.descricao,
-				conta.saldoInicial,
-				conta.ativa ? 1 : 0,
-				conta.contaVinculadaId ?? null,
-				conta.categoria ?? null,
-				conta.criadoEm
+				account.id,
+				account.type,
+				account.name,
+				account.description,
+				account.openingBalance,
+				account.active ? 1 : 0,
+				account.linkedAccountId ?? null,
+				account.category ?? null,
+				account.createdAt
 			);
 	}
 
-	async listarTransacoes(): Promise<Transacao[]> {
+	async listTransactions(): Promise<Transaction[]> {
 		const rows = this.db
 			.query<TransactionRow, []>('SELECT * FROM transactions ORDER BY created_at, id')
 			.all();
-		return rows.map(transacaoDe);
+		return rows.map(transactionFromRow);
 	}
 
-	async incluirTransacao(transacao: Transacao): Promise<void> {
+	async insertTransaction(transaction: Transaction): Promise<void> {
 		this.db
 			.query(
 				`INSERT INTO transactions (
 					id, date, description, type, amount, category, account_id,
 					destination_account_id, card_id, invoice_reference,
-					installment_current, installment_total, installment_group_id,
-					created_at
+					installment_current, installment_total,
+					installment_group_id, created_at
 				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 			)
 			.run(
-				transacao.id,
-				transacao.data,
-				transacao.descricao,
-				transacao.tipo,
-				transacao.valor,
-				transacao.categoria,
-				transacao.contaId,
-				transacao.contaDestinoId ?? null,
-				transacao.cartaoId ?? null,
-				transacao.faturaReferencia ?? null,
-				transacao.parcela?.atual ?? null,
-				transacao.parcela?.total ?? null,
-				transacao.grupoParcelamentoId ?? null,
-				transacao.criadoEm
+				transaction.id,
+				transaction.date,
+				transaction.description,
+				transaction.type,
+				transaction.amount,
+				transaction.category,
+				transaction.accountId,
+				transaction.destinationAccountId ?? null,
+				transaction.cardId ?? null,
+				transaction.invoiceReference ?? null,
+				transaction.installment?.current ?? null,
+				transaction.installment?.total ?? null,
+				transaction.installmentGroupId ?? null,
+				transaction.createdAt
 			);
 	}
 
-	async removerTransacao(id: string): Promise<void> {
+	async deleteTransaction(id: string): Promise<void> {
 		this.db.query('DELETE FROM transactions WHERE id = ?').run(id);
 	}
 
@@ -141,39 +142,41 @@ export class SqliteLedgerRepository implements RepositorioDoLivro {
 	}
 }
 
-function contaDe(row: AccountRow): Conta {
-	const conta: Conta = {
+function accountFromRow(row: AccountRow): Account {
+	const account: Account = {
 		id: row.id,
-		tipo: row.type as TipoConta,
-		nome: row.name,
-		descricao: row.description,
-		saldoInicial: row.opening_balance,
-		ativa: row.active === 1,
-		criadoEm: row.created_at
+		type: row.type as AccountType,
+		name: row.name,
+		description: row.description,
+		openingBalance: row.opening_balance,
+		active: row.active === 1,
+		createdAt: row.created_at
 	};
-	if (row.linked_account_id) conta.contaVinculadaId = row.linked_account_id;
-	if (row.category) conta.categoria = row.category as CategoriaConta;
-	return conta;
+	if (row.linked_account_id) account.linkedAccountId = row.linked_account_id;
+	if (row.category) account.category = row.category as AccountCategory;
+	return account;
 }
 
-function transacaoDe(row: TransactionRow): Transacao {
-	const transacao: Transacao = {
+function transactionFromRow(row: TransactionRow): Transaction {
+	const transaction: Transaction = {
 		id: row.id,
-		data: row.date,
-		descricao: row.description,
-		tipo: row.type as TipoTransacao,
-		valor: row.amount,
-		categoria: row.category as CategoriaTransacao,
-		contaId: row.account_id,
-		criadoEm: row.created_at
+		date: row.date,
+		description: row.description,
+		type: row.type as TransactionType,
+		amount: row.amount,
+		category: row.category,
+		accountId: row.account_id,
+		createdAt: row.created_at
 	};
-	if (row.destination_account_id) transacao.contaDestinoId = row.destination_account_id;
-	if (row.card_id) transacao.cartaoId = row.card_id;
-	if (row.invoice_reference) transacao.faturaReferencia = row.invoice_reference;
+	if (row.destination_account_id) transaction.destinationAccountId = row.destination_account_id;
+	if (row.card_id) transaction.cardId = row.card_id;
+	if (row.invoice_reference) transaction.invoiceReference = row.invoice_reference;
 	if (row.installment_current !== null && row.installment_total !== null) {
-		const parcela: Parcela = { atual: row.installment_current, total: row.installment_total };
-		transacao.parcela = parcela;
+		transaction.installment = {
+			current: row.installment_current,
+			total: row.installment_total
+		};
 	}
-	if (row.installment_group_id) transacao.grupoParcelamentoId = row.installment_group_id;
-	return transacao;
+	if (row.installment_group_id) transaction.installmentGroupId = row.installment_group_id;
+	return transaction;
 }

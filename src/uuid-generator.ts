@@ -1,7 +1,5 @@
-import type { GeradorDeId } from 'financeiro-sdk';
-
-export class UuidGenerator implements GeradorDeId {
-	novoId(): string {
+export class UuidGenerator {
+	newId(): string {
 		return crypto.randomUUID();
 	}
 }

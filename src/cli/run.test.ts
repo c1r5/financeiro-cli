@@ -5,17 +5,17 @@ import { join } from 'node:path';
 import { SystemClock } from '../system-clock';
 import { run } from './run';
 
-test('abrir, lançar no futuro, listar e remover mantém o saldo de hoje', async () => {
+test('opening, posting a future expense, listing and removing keeps today balance', async () => {
 	const dir = await mkdtemp(join(tmpdir(), 'financeiro-cli-'));
-	const file = join(dir, 'livro.sqlite');
-	const linhas: string[] = [];
+	const file = join(dir, 'ledger.sqlite');
+	const lines: string[] = [];
 	const original = console.log;
 	console.log = (...args: unknown[]) => {
-		linhas.push(args.map(String).join(' '));
+		lines.push(args.map(String).join(' '));
 	};
 	try {
-		const hoje = new SystemClock().hoje();
-		const amanha = diaSeguinte(hoje);
+		const today = new SystemClock().today();
+		const tomorrow = nextDay(today);
 
 		expect(
 			await run([
@@ -31,11 +31,11 @@ test('abrir, lançar no futuro, listar e remover mantém o saldo de hoje', async
 				'5000'
 			])
 		).toBe(0);
-		const contaId = linhas.at(-1) ?? '';
-		expect(contaId).not.toBe('');
+		const accountId = lines.at(-1) ?? '';
+		expect(accountId).not.toBe('');
 
 		expect(await run(['--file', file, 'balance'])).toBe(0);
-		expect(linhas.slice(-3)).toEqual(['available 5000', 'savings 0', 'total 5000']);
+		expect(lines.slice(-3)).toEqual(['available 5000', 'savings 0', 'total 5000']);
 
 		expect(
 			await run([
@@ -47,44 +47,44 @@ test('abrir, lançar no futuro, listar e remover mantém o saldo de hoje', async
 				'--amount',
 				'1000',
 				'--date',
-				amanha,
+				tomorrow,
 				'--description',
 				'Market',
 				'--account',
-				contaId,
+				accountId,
 				'--category',
 				'mercado'
 			])
 		).toBe(0);
-		const lancamentoId = linhas.at(-1) ?? '';
+		const transactionId = lines.at(-1) ?? '';
 		expect(await run(['--file', file, 'balance'])).toBe(0);
-		expect(linhas.slice(-3)).toEqual(['available 5000', 'savings 0', 'total 5000']);
+		expect(lines.slice(-3)).toEqual(['available 5000', 'savings 0', 'total 5000']);
 
-		const antesDaLista = linhas.length;
+		const beforeList = lines.length;
 		expect(await run(['--file', file, 'list'])).toBe(0);
-		const lista = linhas.slice(antesDaLista);
-		expect(lista).toHaveLength(2);
-		expect(lista[0]).toContain('income');
-		expect(lista[0]).toContain('Saldo inicial de Nubank');
-		expect(lista[0]).toContain(hoje);
-		expect(lista[1]).toBe(`${lancamentoId} ${amanha} expense 1000 Market`);
+		const listed = lines.slice(beforeList);
+		expect(listed).toHaveLength(2);
+		expect(listed[0]).toContain('income');
+		expect(listed[0]).toContain('Saldo inicial de Nubank');
+		expect(listed[0]).toContain(today);
+		expect(listed[1]).toBe(`${transactionId} ${tomorrow} expense 1000 Market`);
 
-		expect(await run(['--file', file, 'remove', lancamentoId])).toBe(0);
-		const antesDaSegunda = linhas.length;
+		expect(await run(['--file', file, 'remove', transactionId])).toBe(0);
+		const beforeSecondList = lines.length;
 		expect(await run(['--file', file, 'list'])).toBe(0);
-		expect(linhas.slice(antesDaSegunda)).toEqual([lista[0]]);
+		expect(lines.slice(beforeSecondList)).toEqual([listed[0]]);
 		expect(await run(['--file', file, 'balance'])).toBe(0);
-		expect(linhas.slice(-3)).toEqual(['available 5000', 'savings 0', 'total 5000']);
+		expect(lines.slice(-3)).toEqual(['available 5000', 'savings 0', 'total 5000']);
 	} finally {
 		console.log = original;
 		await rm(dir, { recursive: true, force: true });
 	}
 });
 
-function diaSeguinte(iso: string): string {
-	const [ano, mes, dia] = iso.split('-').map(Number);
-	const data = new Date(ano, mes - 1, dia + 1);
-	const mesNovo = String(data.getMonth() + 1).padStart(2, '0');
-	const diaNovo = String(data.getDate()).padStart(2, '0');
-	return `${data.getFullYear()}-${mesNovo}-${diaNovo}`;
+function nextDay(iso: string): string {
+	const [year, month, day] = iso.split('-').map(Number);
+	const date = new Date(year, month - 1, day + 1);
+	const nextMonth = String(date.getMonth() + 1).padStart(2, '0');
+	const nextDayOfMonth = String(date.getDate()).padStart(2, '0');
+	return `${date.getFullYear()}-${nextMonth}-${nextDayOfMonth}`;
 }
