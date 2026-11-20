@@ -28,6 +28,16 @@ export function ensureSchema(db: Database): void {
 		installment_group_id TEXT,
 		created_at TEXT NOT NULL
 	)`);
+	db.run(`CREATE TABLE IF NOT EXISTS cards (
+		id TEXT PRIMARY KEY,
+		name TEXT NOT NULL,
+		credit_limit INTEGER NOT NULL,
+		closing_day INTEGER NOT NULL,
+		due_day INTEGER NOT NULL,
+		color TEXT NOT NULL,
+		active INTEGER NOT NULL,
+		created_at TEXT NOT NULL
+	)`);
 	db.run(`CREATE TABLE IF NOT EXISTS settings (
 		id INTEGER PRIMARY KEY CHECK (id = 1),
 		currency TEXT NOT NULL,

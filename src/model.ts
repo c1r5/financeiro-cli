@@ -21,6 +21,31 @@ export interface Account {
 	createdAt: string;
 }
 
+export interface Card {
+	id: string;
+	name: string;
+	limit: number;
+	closingDay: number;
+	dueDay: number;
+	color: string;
+	active: boolean;
+	createdAt: string;
+}
+
+export interface Invoice {
+	reference: string;
+	balance: number;
+	closed: boolean;
+	due: string;
+	expected?: number;
+}
+
+export interface CardSummary {
+	used: number;
+	available: number;
+	reference: string;
+}
+
 export interface Installment {
 	current: number;
 	total: number;

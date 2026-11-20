@@ -9,6 +9,13 @@ Commands:
   post --type income|expense|transfer --amount <cents> --date YYYY-MM-DD --description <text> --account <id> [--to <id>] [--category <name>]
   list [--month <n>] [--year <n>] [--type income|expense|transfer] [--text <query>]
   remove <id>
+  card open --name <name> --limit <cents> --closes <day> --due <day> --color <value>
+  card base --card <id> --reference YYYY-MM --amount <cents>
+  card purchase --card <id> --amount <cents> --date YYYY-MM-DD --description <text> --category <name>
+  card installment --card <id> --amount <cents> --date YYYY-MM-DD --description <text> --category <name> --count <n>
+  card invoice --card <id> --reference YYYY-MM
+  card pay --card <id> --account <id> --amount <cents> --reference YYYY-MM --date YYYY-MM-DD
+  card summary --card <id>
   settings show
   settings set [--currency <code>] [--general <n>] [--debts <n>] [--reserve <n>] [--margin <cents>]
 

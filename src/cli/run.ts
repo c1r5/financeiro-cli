@@ -12,6 +12,7 @@ import {
 } from '../sdk';
 import { SystemClock } from '../system-clock';
 import { UuidGenerator } from '../uuid-generator';
+import { runCard } from './card-command';
 import { formatSettings, showSettings, updateSettings } from './settings-command';
 import { accountCategory, accountType, transactionType } from './vocabulary';
 
@@ -71,6 +72,10 @@ async function execute(
 		const id = args[1];
 		if (!id) throw new Error('missing id');
 		await deleteTransaction(repository, id);
+		return;
+	}
+	if (command === 'card') {
+		await runCard(args, file, repository, clock, ids);
 		return;
 	}
 	if (command === 'settings' && args[1] === 'show') {

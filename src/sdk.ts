@@ -1,12 +1,20 @@
 import {
 	abrirConta,
 	consultarSaldos,
+	criarCartao,
+	criarValorBase,
+	gerarFatura,
+	gerarResumo,
 	listarTransacoes,
+	registrarGasto,
+	registrarGastoParcelado,
+	registrarPagamento,
 	registrarTransacao,
 	removerTransacao,
 	validarConfiguracao,
 	type CategoriaConta,
 	type CategoriaTransacao,
+	type Cartao,
 	type Conta,
 	type EntradaDeTransacao,
 	type FiltroDeTransacoes,
@@ -23,6 +31,9 @@ import type {
 	Account,
 	AccountCategory,
 	AccountType,
+	Card,
+	CardSummary,
+	Invoice,
 	Transaction,
 	TransactionType
 } from './model';
@@ -275,6 +286,174 @@ function fromSdkTransaction(transaction: Transacao): Transaction {
 	}
 	if (transaction.grupoParcelamentoId) mapped.installmentGroupId = transaction.grupoParcelamentoId;
 	return mapped;
+}
+
+export function createCard(input: {
+	id: string;
+	createdAt: string;
+	name: string;
+	limit: number;
+	closingDay: number;
+	dueDay: number;
+	color: string;
+}): Card {
+	return fromSdkCard(
+		criarCartao({
+			id: input.id,
+			criadoEm: input.createdAt,
+			nome: input.name,
+			limite: input.limit,
+			diaFechamento: input.closingDay,
+			diaVencimento: input.dueDay,
+			cor: input.color
+		})
+	);
+}
+
+export function purchaseOnCard(input: {
+	id: string;
+	createdAt: string;
+	card: Card;
+	date: string;
+	description: string;
+	amount: number;
+	category: string;
+}): Transaction {
+	return fromSdkTransaction(
+		registrarGasto({
+			id: input.id,
+			criadoEm: input.createdAt,
+			cartao: toSdkCard(input.card),
+			data: input.date,
+			descricao: input.description,
+			valor: input.amount,
+			categoria: input.category as CategoriaTransacao
+		})
+	);
+}
+
+export function installmentOnCard(input: {
+	groupId: string;
+	ids: string[];
+	createdAt: string;
+	card: Card;
+	date: string;
+	description: string;
+	amount: number;
+	count: number;
+	category: string;
+}): Transaction[] {
+	return registrarGastoParcelado({
+		grupoId: input.groupId,
+		ids: input.ids,
+		criadoEm: input.createdAt,
+		cartao: toSdkCard(input.card),
+		data: input.date,
+		descricao: input.description,
+		valorTotal: input.amount,
+		totalParcelas: input.count,
+		categoria: input.category as CategoriaTransacao
+	}).map(fromSdkTransaction);
+}
+
+export function invoiceBase(input: {
+	id: string;
+	createdAt: string;
+	card: Card;
+	reference: string;
+	amount: number;
+}): Transaction {
+	return fromSdkTransaction(
+		criarValorBase({
+			id: input.id,
+			criadoEm: input.createdAt,
+			cartao: toSdkCard(input.card),
+			referencia: input.reference,
+			valor: input.amount
+		})
+	);
+}
+
+export function readInvoice(
+	card: Card,
+	transactions: Transaction[],
+	reference: string,
+	today: string
+): Invoice {
+	const invoice = gerarFatura(
+		toSdkCard(card),
+		transactions.map(toSdkTransaction),
+		reference,
+		today
+	);
+	return {
+		reference: invoice.referencia,
+		balance: invoice.saldo,
+		closed: invoice.fechada,
+		due: invoice.vencimento,
+		expected: invoice.valorPrevisto
+	};
+}
+
+export function payInvoice(input: {
+	id: string;
+	createdAt: string;
+	card: Card;
+	accountId: string;
+	date: string;
+	amount: number;
+	reference: string;
+}): Transaction {
+	return fromSdkTransaction(
+		registrarPagamento({
+			id: input.id,
+			criadoEm: input.createdAt,
+			cartao: toSdkCard(input.card),
+			contaId: input.accountId,
+			data: input.date,
+			valor: input.amount,
+			faturaReferencia: input.reference
+		})
+	);
+}
+
+export function summarizeCard(
+	card: Card,
+	transactions: Transaction[],
+	today: string
+): CardSummary {
+	const summary = gerarResumo(toSdkCard(card), transactions.map(toSdkTransaction), today);
+	return {
+		used: summary.limiteUsado,
+		available: summary.limiteDisponivel,
+		reference: summary.faturaAtual.referencia
+	};
+}
+
+function toSdkCard(card: Card): Cartao {
+	return {
+		id: card.id,
+		nome: card.name,
+		limite: card.limit,
+		diaFechamento: card.closingDay,
+		diaVencimento: card.dueDay,
+		cor: card.color,
+		ativo: card.active,
+		criadoEm: card.createdAt
+	};
+}
+
+function fromSdkCard(card: Cartao): Card {
+	return {
+		id: card.id,
+		name: card.nome,
+		limit: card.limite,
+		closingDay: card.diaFechamento,
+		dueDay: card.diaVencimento,
+		color: card.cor,
+		active: card.ativo,
+		createdAt: card.criadoEm
+	};
 }
 
 export function checkSettings(settings: Settings): Settings {
