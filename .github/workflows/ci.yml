@@ -15,14 +15,11 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.4
-      - name: Access the private SDK
-        env:
-          SDK_READ_TOKEN: ${{ secrets.SDK_READ_TOKEN }}
+      - name: Clone the SDK over HTTPS
         run: |
           git config --local --unset-all http.https://github.com/.extraheader || true
-          git config --global url."https://x-access-token:${SDK_READ_TOKEN}@github.com/".insteadOf "https://github.com/"
-          git config --global url."https://x-access-token:${SDK_READ_TOKEN}@github.com/".insteadOf "ssh://git@github.com/"
-          git config --global url."https://x-access-token:${SDK_READ_TOKEN}@github.com/".insteadOf "git@github.com:"
+          git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
+          git config --global url."https://github.com/".insteadOf "git@github.com:"
       - run: bun install --frozen-lockfile
       - run: bun test
       - run: bun run check
