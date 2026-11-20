@@ -1,5 +1,6 @@
 import { recordLines } from './record';
 import type { Reply } from './output';
+import { planImport } from '../import/plan';
 import { readImport } from '../import/source';
 import {
 	assertFilterValues,
@@ -11,10 +12,14 @@ import {
 	type ImportQuery
 } from '../import/select';
 
-export async function executeImport(args: string[], reply: Reply): Promise<void> {
+export async function executeImport(args: string[], file: string, reply: Reply): Promise<void> {
 	const action = args[1];
 	if (action === 'inspect') {
 		inspect(args.slice(2), reply);
+		return;
+	}
+	if (action === 'plan') {
+		await plan(args.slice(2), file, reply);
 		return;
 	}
 	throw new Error(`unknown command: import${action ? ` ${action}` : ''}`);
@@ -65,6 +70,38 @@ function inspect(flags: string[], reply: Reply): void {
 	assertFilterValues(entity, query);
 	const rows = selectEntity(source, entity, query);
 	reply(recordLines(rows as Array<Record<string, unknown>>), { rows });
+}
+
+async function plan(flags: string[], file: string, reply: Reply): Promise<void> {
+	const from = required(flags, '--from');
+	const withDeps = takeFlag(flags, '--with-deps');
+	if (takeFlag(flags, '--allow-dangling')) throw new Error('invalid import filter: --allow-dangling');
+	const onAccount = option(flags, '--on-account');
+	const entityFlag = option(flags, '--entity');
+	if (entityFlag === undefined) throw new Error('missing --entity');
+	const entity = importEntity(entityFlag);
+	const present = flagNames(flags);
+	const query = queryFrom(flags);
+	rejectUnusedFilters(entity, present);
+	assertFilterValues(entity, query);
+	const source = readImport(from);
+	const rows = selectEntity(source, entity, query);
+	const planned = await planImport(source, file, entity, rows, withDeps, onAccount);
+	const lines = [
+		...planned.insert.map((row) => `insert ${row.entity} ${row.id}`),
+		...planned.unchanged.map((row) => `unchanged ${row.entity} ${row.id}`),
+		...planned.conflict.map((row) => `conflict ${row.entity} ${row.id} ${row.fields.join(',')}`),
+		...planned.blocked.map((row) => `blocked ${row.entity} ${row.id} ${row.missing}`),
+		...planned.deps.map((row) => `dep ${row.entity} ${row.id}`)
+	];
+	reply(lines, planned);
+}
+
+function takeFlag(args: string[], name: string): boolean {
+	const index = args.indexOf(name);
+	if (index === -1) return false;
+	args.splice(index, 1);
+	return true;
 }
 
 function queryFrom(flags: string[]): ImportQuery {

@@ -49,7 +49,7 @@ export async function run(argv: string[]): Promise<number> {
 			const key = option(args, '--idempotency-key');
 			if (key === '') throw new Error('missing value for --idempotency-key');
 			if (key !== undefined) throw new Error('invalid idempotency command');
-			await executeImport(args, reply);
+			await executeImport(args, file, reply);
 			if (json) console.log(JSON.stringify({ ok: true, data }));
 			return 0;
 		}
