@@ -1,5 +1,6 @@
 import { recordLines } from './record';
 import type { Reply } from './output';
+import { applyImport } from '../import/apply';
 import { planImport } from '../import/plan';
 import { readImport } from '../import/source';
 import {
@@ -20,6 +21,10 @@ export async function executeImport(args: string[], file: string, reply: Reply):
 	}
 	if (action === 'plan') {
 		await plan(args.slice(2), file, reply);
+		return;
+	}
+	if (action === 'apply') {
+		await apply(args.slice(2), file, reply);
 		return;
 	}
 	throw new Error(`unknown command: import${action ? ` ${action}` : ''}`);
@@ -95,6 +100,28 @@ async function plan(flags: string[], file: string, reply: Reply): Promise<void> 
 		...planned.deps.map((row) => `dep ${row.entity} ${row.id}`)
 	];
 	reply(lines, planned);
+}
+
+async function apply(flags: string[], file: string, reply: Reply): Promise<void> {
+	const from = required(flags, '--from');
+	const withDeps = takeFlag(flags, '--with-deps');
+	const allowDangling = takeFlag(flags, '--allow-dangling');
+	const onAccount = option(flags, '--on-account');
+	const entityFlag = option(flags, '--entity');
+	if (entityFlag === undefined) throw new Error('missing --entity');
+	const entity = importEntity(entityFlag);
+	const present = flagNames(flags);
+	const query = queryFrom(flags);
+	rejectUnusedFilters(entity, present);
+	assertFilterValues(entity, query);
+	const source = readImport(from);
+	const rows = selectEntity(source, entity, query);
+	const applied = await applyImport(source, file, entity, rows, withDeps, onAccount, allowDangling);
+	const lines = [
+		...applied.inserted.map((row) => `inserted ${row.entity} ${row.id}`),
+		...applied.unchanged.map((row) => `unchanged ${row.entity} ${row.id}`)
+	];
+	reply(lines, applied);
 }
 
 function takeFlag(args: string[], name: string): boolean {
