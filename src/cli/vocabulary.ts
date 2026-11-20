@@ -1,27 +1,16 @@
-import type { CategoriaConta, TipoConta, TipoTransacao } from 'financeiro-sdk';
+import type { AccountCategory, AccountType, TransactionType } from '../model';
 
-export function accountType(value: string): TipoConta {
-	if (value === 'checking') return 'corrente';
-	if (value === 'savings') return 'poupanca';
+export function accountType(value: string): AccountType {
+	if (value === 'checking' || value === 'savings') return value;
 	throw new Error(`unknown account type: ${value}`);
 }
 
-export function accountCategory(value: string): CategoriaConta {
-	if (value === 'reserve') return 'reserva';
-	if (value === 'goal') return 'objetivo';
+export function accountCategory(value: string): AccountCategory {
+	if (value === 'reserve' || value === 'goal') return value;
 	throw new Error(`unknown account category: ${value}`);
 }
 
-export function transactionType(value: string): TipoTransacao {
-	if (value === 'income') return 'entrada';
-	if (value === 'expense') return 'saida';
-	if (value === 'transfer') return 'transferencia';
+export function transactionType(value: string): TransactionType {
+	if (value === 'income' || value === 'expense' || value === 'transfer') return value;
 	throw new Error(`unknown transaction type: ${value}`);
-}
-
-export function cliType(tipo: TipoTransacao): string {
-	if (tipo === 'entrada') return 'income';
-	if (tipo === 'saida') return 'expense';
-	if (tipo === 'transferencia') return 'transfer';
-	return tipo;
 }
