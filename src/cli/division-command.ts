@@ -13,12 +13,14 @@ import {
 } from '../sdk';
 import { SettingsRepository } from '../settings/settings';
 import type { SystemClock } from '../system-clock';
+import type { Reply } from './output';
 
 export async function runDivision(
 	args: string[],
 	file: string,
 	ledger: SqliteLedgerRepository,
-	clock: SystemClock
+	clock: SystemClock,
+	reply: Reply
 ): Promise<void> {
 	if (args[1] !== 'show') throw new Error(`unknown division command: ${args[1]}`);
 	const { month, year } = monthYear(args.slice(2));
@@ -32,7 +34,7 @@ export async function runDivision(
 			settings: loaded.settings.read()
 		});
 		const saved = await savedReserve(ledger, clock);
-		for (const line of formatSplit(split, saved)) console.log(line);
+		reply(formatSplit(split, saved), { ...split, saved });
 	} finally {
 		loaded.close();
 	}
@@ -42,7 +44,8 @@ export async function runDebt(
 	args: string[],
 	file: string,
 	ledger: SqliteLedgerRepository,
-	clock: SystemClock
+	clock: SystemClock,
+	reply: Reply
 ): Promise<void> {
 	const action = args[1];
 	const flags = args.slice(2);
@@ -59,7 +62,7 @@ export async function runDebt(
 				year,
 				today: clock.today()
 			});
-			for (const line of lines) console.log(formatDebt(line));
+			reply(lines.map(formatDebt), { debts: lines });
 			return;
 		}
 		if (action === 'cost') {
@@ -72,7 +75,7 @@ export async function runDebt(
 				settings: loaded.settings.read(),
 				horizons
 			});
-			for (const row of rows) console.log(formatHorizon(row));
+			reply(rows.map(formatHorizon), { horizons: rows });
 			return;
 		}
 		throw new Error(`unknown debt command: ${action}`);

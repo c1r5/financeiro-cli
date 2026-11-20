@@ -1,5 +1,6 @@
 import { ForecastRepository } from '../forecasts/forecasts';
 import type { SqliteLedgerRepository } from '../ledger/sqlite-ledger-repository';
+import type { Forecast } from '../model';
 import {
 	createForecast,
 	editForecastDay,
@@ -11,19 +12,27 @@ import {
 } from '../sdk';
 import type { SystemClock } from '../system-clock';
 import type { UuidGenerator } from '../uuid-generator';
-import { flowType, forecastFrequency } from './vocabulary';
+import type { Reply } from './output';
+import { recordLines } from './record';
+import { flowType, forecastFrequency, transactionCategory } from './vocabulary';
 
 export async function runForecast(
 	args: string[],
 	file: string,
 	ledger: SqliteLedgerRepository,
 	clock: SystemClock,
-	ids: UuidGenerator
+	ids: UuidGenerator,
+	reply: Reply
 ): Promise<void> {
 	const action = args[1];
 	const flags = args.slice(2);
 	const forecasts = new ForecastRepository(file);
 	try {
+		if (action === 'list') {
+			const listed = forecasts.list().map(forecastData);
+			reply(recordLines(listed), { forecasts: listed });
+			return;
+		}
 		if (action === 'add') {
 			const frequency = forecastFrequency(required(flags, '--frequency'));
 			const weekdays = option(flags, '--weekdays');
@@ -39,18 +48,19 @@ export async function runForecast(
 				type: flowType(required(flags, '--type')),
 				frequency,
 				date: required(flags, '--date'),
-				category: required(flags, '--category'),
+				category: transactionCategory(required(flags, '--category')),
 				accountId: required(flags, '--account'),
 				weekdays: days,
 				endsOn: until
 			});
 			forecasts.save(forecast);
-			console.log(forecast.id);
+			reply([forecast.id], { id: forecast.id });
 			return;
 		}
 		if (action === 'exclude') {
 			const forecast = forecasts.find(required(flags, '--id'));
 			forecasts.save(excludeForecastDate(forecast, required(flags, '--date')));
+			reply([], { id: forecast.id });
 			return;
 		}
 		if (action === 'pay') {
@@ -66,7 +76,7 @@ export async function runForecast(
 				accountId: option(flags, '--account') ?? forecast.accountId
 			});
 			forecasts.save(markForecastPaid(forecast, date, transaction.id));
-			console.log(transaction.id);
+			reply([transaction.id], { id: transaction.id });
 			return;
 		}
 		if (action === 'edit') {
@@ -77,17 +87,38 @@ export async function runForecast(
 			if (all && date) throw new Error('use either --date or --all');
 			if (all) {
 				forecasts.save(editForecastSeries(forecast, amount));
+				reply([], { id: forecast.id });
 				return;
 			}
 			if (!date) throw new Error('missing --date');
 			if (forecast.frequency !== 'daily') throw new Error('a per-day amount is only for a daily series');
 			forecasts.save(editForecastDay(forecast, date, amount));
+			reply([], { id: forecast.id });
 			return;
 		}
 		throw new Error(`unknown forecast command: ${action}`);
 	} finally {
 		forecasts.close();
 	}
+}
+
+function forecastData(forecast: Forecast): Record<string, unknown> {
+	return {
+		id: forecast.id,
+		name: forecast.name,
+		amount: forecast.amount,
+		type: forecast.type,
+		frequency: forecast.frequency,
+		weekdays: forecast.weekdays ?? null,
+		endsOn: forecast.endsOn ?? null,
+		statusByDay: forecast.statusByDay,
+		paymentsByDay: forecast.paymentsByDay,
+		amountsByDay: forecast.amountsByDay,
+		excluded: forecast.excluded,
+		date: forecast.date,
+		category: forecast.category,
+		accountId: forecast.accountId
+	};
 }
 
 function parseWeekdays(value: string): number[] {

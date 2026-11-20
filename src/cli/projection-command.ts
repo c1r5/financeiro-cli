@@ -5,12 +5,14 @@ import { RecurringRepository } from '../recurring/recurrings';
 import { projectBalance, readBalances, type ProjectedDay } from '../sdk';
 import { SettingsRepository } from '../settings/settings';
 import type { SystemClock } from '../system-clock';
+import type { Reply } from './output';
 
 export async function runProjection(
 	args: string[],
 	file: string,
 	ledger: SqliteLedgerRepository,
-	clock: SystemClock
+	clock: SystemClock,
+	reply: Reply
 ): Promise<void> {
 	if (args[1] !== 'show') throw new Error(`unknown projection command: ${args[1]}`);
 	const days = cents(required(args.slice(2), '--days'));
@@ -31,8 +33,10 @@ export async function runProjection(
 			forecasts: [...forecasts.list()].sort(byName),
 			margin: settings.read().safetyMargin
 		});
-		for (const day of projected.days) console.log(formatDay(day));
-		console.log(`daily-limit ${projected.dailyLimit}`);
+		reply(
+			[...projected.days.map(formatDay), `daily-limit ${projected.dailyLimit}`],
+			projected
+		);
 	} finally {
 		settings.close();
 		cards.close();

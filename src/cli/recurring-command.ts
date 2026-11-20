@@ -1,6 +1,6 @@
 import { CardRepository } from '../cards/cards';
 import type { SqliteLedgerRepository } from '../ledger/sqlite-ledger-repository';
-import type { Transaction } from '../model';
+import type { Recurring, Transaction } from '../model';
 import { RecurringRepository } from '../recurring/recurrings';
 import {
 	createRecurring,
@@ -13,14 +13,17 @@ import {
 } from '../sdk';
 import type { SystemClock } from '../system-clock';
 import type { UuidGenerator } from '../uuid-generator';
-import { flowType } from './vocabulary';
+import type { Reply } from './output';
+import { recordLines } from './record';
+import { flowType, transactionCategory } from './vocabulary';
 
 export async function runRecurring(
 	args: string[],
 	file: string,
 	ledger: SqliteLedgerRepository,
 	clock: SystemClock,
-	ids: UuidGenerator
+	ids: UuidGenerator,
+	reply: Reply
 ): Promise<void> {
 	const action = args[1];
 	const flags = args.slice(2);
@@ -34,7 +37,7 @@ export async function runRecurring(
 				id: ids.newId(),
 				createdAt: clock.now(),
 				name: required(flags, '--name'),
-				category: required(flags, '--category'),
+				category: transactionCategory(required(flags, '--category')),
 				type: flowType(required(flags, '--type')),
 				expectedAmount: cents(required(flags, '--amount')),
 				dueDay: cents(required(flags, '--day')),
@@ -44,14 +47,30 @@ export async function runRecurring(
 				cardId
 			});
 			recurrings.save(recurring);
-			console.log(recurring.id);
+			reply([recurring.id], { id: recurring.id });
 			return;
 		}
 		if (action === 'list') {
-			const month = yearMonth(required(flags, '--month'));
-			for (const item of pendingRecurrings(recurrings.list(), month)) {
-				console.log(`${item.id} ${item.date} ${item.name} ${item.amount}`);
+			const monthFlag = option(flags, '--month');
+			if (monthFlag === undefined) {
+				const listed = recurrings.list().map(recurringData);
+				reply(recordLines(listed), { recurrings: listed });
+				return;
 			}
+			const month = yearMonth(monthFlag);
+			const pending = pendingRecurrings(recurrings.list(), month);
+			reply(
+				pending.map((item) => `${item.id} ${item.date} ${item.name} ${item.amount}`),
+				{
+					month,
+					pending: pending.map((item) => ({
+						id: item.id,
+						date: item.date,
+						name: item.name,
+						amount: item.amount
+					}))
+				}
+			);
 			return;
 		}
 		if (action === 'pay') {
@@ -88,7 +107,7 @@ export async function runRecurring(
 				});
 			}
 			recurrings.save(markRecurringPaid(recurring, month, transaction.id));
-			console.log(transaction.id);
+			reply([transaction.id], { id: transaction.id });
 			return;
 		}
 		if (action === 'revert') {
@@ -97,6 +116,7 @@ export async function runRecurring(
 			const paymentId = recurring.paymentsByMonth[month];
 			if (paymentId) await ledger.deleteTransaction(paymentId);
 			recurrings.save(markRecurringExpected(recurring, month));
+			reply([], { id: recurring.id, month });
 			return;
 		}
 		throw new Error(`unknown recurring command: ${action}`);
@@ -104,6 +124,25 @@ export async function runRecurring(
 		recurrings.close();
 		cards.close();
 	}
+}
+
+function recurringData(recurring: Recurring): Record<string, unknown> {
+	return {
+		id: recurring.id,
+		name: recurring.name,
+		category: recurring.category,
+		type: recurring.type,
+		expectedAmount: recurring.expectedAmount,
+		dueDay: recurring.dueDay,
+		startsOn: recurring.startsOn,
+		endsOn: recurring.endsOn ?? null,
+		accountId: recurring.accountId,
+		cardId: recurring.cardId ?? null,
+		active: recurring.active,
+		statusByMonth: recurring.statusByMonth,
+		paymentsByMonth: recurring.paymentsByMonth,
+		createdAt: recurring.createdAt
+	};
 }
 
 function yearMonth(value: string): string {

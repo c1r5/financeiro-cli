@@ -1,3 +1,4 @@
+import { CATEGORIAS } from 'financeiro-sdk';
 import type {
 	AccountCategory,
 	AccountType,
@@ -23,6 +24,11 @@ export function forecastFrequency(value: string): ForecastFrequency {
 export function flowType(value: string): 'income' | 'expense' {
 	if (value === 'income' || value === 'expense') return value;
 	throw new Error(`unknown flow: ${value}`);
+}
+
+export function transactionCategory(value: string): string {
+	if (CATEGORIAS.some((category) => category.value === value)) return value;
+	throw new Error(`invalid category: ${value}`);
 }
 
 export function transactionType(value: string): TransactionType {

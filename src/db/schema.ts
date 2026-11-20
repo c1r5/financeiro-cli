@@ -70,6 +70,11 @@ export function ensureSchema(db: Database): void {
 		category TEXT NOT NULL,
 		account_id TEXT NOT NULL
 	)`);
+	db.run(`CREATE TABLE IF NOT EXISTS idempotency_keys (
+		key TEXT PRIMARY KEY,
+		command TEXT NOT NULL,
+		result TEXT NOT NULL
+	)`);
 	db.run(`CREATE TABLE IF NOT EXISTS settings (
 		id INTEGER PRIMARY KEY CHECK (id = 1),
 		currency TEXT NOT NULL,

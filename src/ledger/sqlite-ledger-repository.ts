@@ -1,4 +1,5 @@
-import { Database } from 'bun:sqlite';
+import type { Database } from 'bun:sqlite';
+import { openDatabase } from '../db/open';
 import { ensureSchema } from '../db/schema';
 import type {
 	Account,
@@ -41,7 +42,7 @@ export class SqliteLedgerRepository {
 	private readonly db: Database;
 
 	constructor(file: string) {
-		this.db = new Database(file);
+		this.db = openDatabase(file);
 		ensureSchema(this.db);
 	}
 
@@ -110,6 +111,21 @@ export class SqliteLedgerRepository {
 
 	async deleteTransaction(id: string): Promise<void> {
 		this.db.query('DELETE FROM transactions WHERE id = ?').run(id);
+	}
+
+	findIdempotency(key: string): { command: string; result: string } | undefined {
+		const row = this.db
+			.query<{ command: string; result: string }, [string]>(
+				'SELECT command, result FROM idempotency_keys WHERE key = ?'
+			)
+			.get(key);
+		return row ?? undefined;
+	}
+
+	saveIdempotency(key: string, command: string, result: string): void {
+		this.db
+			.query('INSERT INTO idempotency_keys (key, command, result) VALUES (?, ?, ?)')
+			.run(key, command, result);
 	}
 
 	close(): void {

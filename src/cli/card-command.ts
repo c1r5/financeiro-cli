@@ -1,6 +1,6 @@
 import { CardRepository } from '../cards/cards';
 import type { SqliteLedgerRepository } from '../ledger/sqlite-ledger-repository';
-import type { Invoice } from '../model';
+import type { Card, Invoice } from '../model';
 import {
 	createCard,
 	installmentOnCard,
@@ -12,18 +12,27 @@ import {
 } from '../sdk';
 import type { SystemClock } from '../system-clock';
 import type { UuidGenerator } from '../uuid-generator';
+import type { Reply } from './output';
+import { recordLines } from './record';
+import { transactionCategory } from './vocabulary';
 
 export async function runCard(
 	args: string[],
 	file: string,
 	ledger: SqliteLedgerRepository,
 	clock: SystemClock,
-	ids: UuidGenerator
+	ids: UuidGenerator,
+	reply: Reply
 ): Promise<void> {
 	const action = args[1];
 	const flags = args.slice(2);
 	const cards = new CardRepository(file);
 	try {
+		if (action === 'list') {
+			const listed = cards.list().map(cardData);
+			reply(recordLines(listed), { cards: listed });
+			return;
+		}
 		if (action === 'open') {
 			const card = createCard({
 				id: ids.newId(),
@@ -35,7 +44,7 @@ export async function runCard(
 				color: required(flags, '--color')
 			});
 			cards.save(card);
-			console.log(card.id);
+			reply([card.id], { id: card.id });
 			return;
 		}
 		const card = cards.find(required(flags, '--card'));
@@ -48,7 +57,7 @@ export async function runCard(
 				amount: cents(required(flags, '--amount'))
 			});
 			await ledger.insertTransaction(transaction);
-			console.log(transaction.id);
+			reply([transaction.id], { id: transaction.id });
 			return;
 		}
 		if (action === 'purchase') {
@@ -59,10 +68,10 @@ export async function runCard(
 				date: required(flags, '--date'),
 				description: required(flags, '--description'),
 				amount: cents(required(flags, '--amount')),
-				category: required(flags, '--category')
+				category: transactionCategory(required(flags, '--category'))
 			});
 			await ledger.insertTransaction(transaction);
-			console.log(transaction.id);
+			reply([transaction.id], { id: transaction.id });
 			return;
 		}
 		if (action === 'installment') {
@@ -77,10 +86,13 @@ export async function runCard(
 				description: required(flags, '--description'),
 				amount: cents(required(flags, '--amount')),
 				count,
-				category: required(flags, '--category')
+				category: transactionCategory(required(flags, '--category'))
 			});
 			for (const parcel of parcels) await ledger.insertTransaction(parcel);
-			for (const parcel of parcels) console.log(`${parcel.id} ${parcel.amount}`);
+			reply(
+				parcels.map((parcel) => `${parcel.id} ${parcel.amount}`),
+				{ parcels: parcels.map((parcel) => ({ id: parcel.id, amount: parcel.amount })) }
+			);
 			return;
 		}
 		if (action === 'invoice') {
@@ -90,7 +102,7 @@ export async function runCard(
 				required(flags, '--reference'),
 				clock.today()
 			);
-			for (const line of formatInvoice(invoice)) console.log(line);
+			reply(formatInvoice(invoice), invoice);
 			return;
 		}
 		if (action === 'pay') {
@@ -104,20 +116,41 @@ export async function runCard(
 				reference: required(flags, '--reference')
 			});
 			await ledger.insertTransaction(transaction);
-			console.log(`${transaction.id} ${transaction.type}`);
+			reply([`${transaction.id} ${transaction.type}`], {
+				id: transaction.id,
+				type: transaction.type
+			});
 			return;
 		}
 		if (action === 'summary') {
 			const summary = summarizeCard(card, await ledger.listTransactions(), clock.today());
-			console.log(`used ${summary.used}`);
-			console.log(`available ${summary.available}`);
-			console.log(`reference ${summary.reference}`);
+			reply(
+				[
+					`used ${summary.used}`,
+					`available ${summary.available}`,
+					`reference ${summary.reference}`
+				],
+				summary
+			);
 			return;
 		}
 		throw new Error(`unknown card command: ${action}`);
 	} finally {
 		cards.close();
 	}
+}
+
+function cardData(card: Card): Record<string, unknown> {
+	return {
+		id: card.id,
+		name: card.name,
+		limit: card.limit,
+		closingDay: card.closingDay,
+		dueDay: card.dueDay,
+		color: card.color,
+		active: card.active,
+		createdAt: card.createdAt
+	};
 }
 
 function formatInvoice(invoice: Invoice): string[] {
