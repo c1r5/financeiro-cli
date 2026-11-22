@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 
 export interface Commit {
 	subject: string;
@@ -159,12 +159,28 @@ function writeRelease(): void {
 	writeFileSync('README.md', next.readme);
 }
 
+function emitPlan(): void {
+	const decision = decide();
+	const output = process.env.GITHUB_OUTPUT;
+	if (!output) {
+		console.log(JSON.stringify(decision));
+		return;
+	}
+	const lines = [`action=${decision.action}`];
+	if (decision.version) lines.push(`version=${decision.version}`);
+	if (decision.notes) {
+		writeFileSync('release-notes.md', decision.notes);
+		lines.push('notes_file=release-notes.md');
+	}
+	appendFileSync(output, `${lines.join('\n')}\n`);
+}
+
 if (import.meta.main) {
 	const command = process.argv[2] ?? 'plan';
 	if (command === 'write') {
 		writeRelease();
 	} else if (command === 'plan') {
-		console.log(JSON.stringify(decide()));
+		emitPlan();
 	} else {
 		throw new Error(`invalid release command: ${command}`);
 	}
