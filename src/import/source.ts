@@ -182,8 +182,9 @@ function mapRecurring(row: unknown, index: number, ignored: string[]): Recurring
 		startsOn: text(record.dataInicio, `${id} dataInicio`),
 		accountId: text(record.contaId, `${id} contaId`),
 		active: flag(record.ativa, `${id} ativa`),
-		statusByMonth: statusMap(record.statusPorMes, id),
-		paymentsByMonth: stringMap(record.pagamentosPorMes, `${id} pagamentosPorMes`),
+		statusByMonth: record.statusPorMes === undefined ? {} : statusMap(record.statusPorMes, id),
+		paymentsByMonth:
+			record.pagamentosPorMes === undefined ? {} : stringMap(record.pagamentosPorMes, `${id} pagamentosPorMes`),
 		createdAt: text(record.criadoEm, `${id} criadoEm`)
 	};
 	if (record.dataFim !== undefined) recurring.endsOn = text(record.dataFim, `${id} dataFim`);
@@ -293,7 +294,7 @@ function accountType(value: unknown, id: string): AccountType {
 
 function accountCategory(value: unknown, id: string): AccountCategory {
 	if (value === 'reserva') return 'reserve';
-	if (value === 'meta') return 'goal';
+	if (value === 'objetivo' || value === 'meta') return 'goal';
 	throw new Error(`invalid import file: ${id} categoria`);
 }
 
@@ -314,8 +315,8 @@ function flow(value: unknown, id: string): RecurringType {
 
 function frequency(value: unknown, id: string): ForecastFrequency {
 	if (value === 'mensal') return 'monthly';
-	if (value === 'unica') return 'once';
-	if (value === 'diaria') return 'daily';
+	if (value === 'pontual' || value === 'unica') return 'once';
+	if (value === 'diario' || value === 'diaria') return 'daily';
 	throw new Error(`invalid import file: ${id} frequencia`);
 }
 
@@ -324,7 +325,7 @@ function statusMap(value: unknown, id: string): Record<string, RecurringStatus> 
 	const mapped: Record<string, RecurringStatus> = {};
 	for (const [month, status] of Object.entries(value)) {
 		if (status === 'paga') mapped[month] = 'paid';
-		else if (status === 'esperada') mapped[month] = 'expected';
+		else if (status === 'prevista' || status === 'esperada') mapped[month] = 'expected';
 		else throw new Error(`invalid import file: ${id} status`);
 	}
 	return mapped;
