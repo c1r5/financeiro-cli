@@ -64,7 +64,7 @@ jobs:
           git checkout -B chore/release
           git add package.json CHANGELOG.md README.md
           git commit -m "chore: publica ${version}"
-          git push --force origin HEAD:chore/release
+          git push --force "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:chore/release
           head="${GITHUB_REPOSITORY_OWNER}:chore/release"
           existing="$(gh pr list --head "$head" --base main --state open --json number --jq '.[0].number')"
           if [ -n "$existing" ]; then
