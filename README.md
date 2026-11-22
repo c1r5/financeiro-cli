@@ -15,13 +15,13 @@ A skill do bot está em `skills/financeiro/SKILL.md`. A assinatura viva dos coma
 
 ## Instalação
 
-A release `v0.0.3` publica o binário Linux x64 e o checksum. O binário não precisa de Bun nem do SDK.
+A release `v0.1.0` publica o binário Linux x64 e o checksum. O binário não precisa de Bun nem do SDK.
 
 ```bash
 curl -L -o financeiro-linux-x64 \
-  https://github.com/c1r5/financeiro-cli/releases/download/v0.0.3/financeiro-linux-x64
+  https://github.com/c1r5/financeiro-cli/releases/download/v0.1.0/financeiro-linux-x64
 curl -L -o financeiro-linux-x64.sha256 \
-  https://github.com/c1r5/financeiro-cli/releases/download/v0.0.3/financeiro-linux-x64.sha256
+  https://github.com/c1r5/financeiro-cli/releases/download/v0.1.0/financeiro-linux-x64.sha256
 sha256sum -c financeiro-linux-x64.sha256
 install -m 755 financeiro-linux-x64 "$HOME/.local/bin/financeiro"
 ```
