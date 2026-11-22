@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   release:
@@ -27,21 +28,47 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun test
       - run: bun run check
-      - name: Publish when the version tag is new
+      - name: Publish the changelog or open the release pull request
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          version="$(bun -e 'console.log(require("./package.json").version)')"
-          tag="v${version}"
-          if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${tag}" >/dev/null 2>&1; then
-            echo "tag ${tag} already exists"
+          plan="$(mktemp)"
+          notes="$(mktemp)"
+          bun scripts/release.ts plan > "$plan"
+          action="$(bun -e 'const d=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")); console.log(d.action)' "$plan")"
+          bun -e 'const d=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")); require("fs").writeFileSync(process.argv[2], d.notes ?? "")' "$plan" "$notes"
+          version="$(bun -e 'const d=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")); console.log(d.version ?? "")' "$plan")"
+          if [ "$action" = "skip" ]; then
+            echo "no release"
             exit 0
           fi
-          bun build ./src/main.ts --compile --target=bun-linux-x64 --outfile financeiro-linux-x64
-          sha256sum financeiro-linux-x64 > financeiro-linux-x64.sha256
-          gh release create "${tag}" \
-            financeiro-linux-x64 \
-            financeiro-linux-x64.sha256 \
-            --target "${GITHUB_SHA}" \
-            --title "${tag}" \
-            --notes "Binário Linux x64 de financeiro ${version}."
+          if [ "$action" = "publish" ]; then
+            tag="v${version}"
+            bun build ./src/main.ts --compile --target=bun-linux-x64 --outfile financeiro-linux-x64
+            sha256sum financeiro-linux-x64 > financeiro-linux-x64.sha256
+            gh release create "${tag}" \
+              financeiro-linux-x64 \
+              financeiro-linux-x64.sha256 \
+              --target "${GITHUB_SHA}" \
+              --title "${tag}" \
+              --notes-file "$notes"
+            exit 0
+          fi
+          if [ "$action" != "pr" ]; then
+            echo "invalid release action: ${action}"
+            exit 1
+          fi
+          bun scripts/release.ts write
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B chore/release
+          git add package.json CHANGELOG.md README.md
+          git commit -m "chore: publica ${version}"
+          git push --force origin HEAD:chore/release
+          head="${GITHUB_REPOSITORY_OWNER}:chore/release"
+          existing="$(gh pr list --head "$head" --base main --state open --json number --jq '.[0].number')"
+          if [ -n "$existing" ]; then
+            gh pr edit "$existing" --title "chore: publica ${version}" --body-file "$notes"
+          else
+            gh pr create --base main --head chore/release --title "chore: publica ${version}" --body-file "$notes"
+          fi
