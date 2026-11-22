@@ -3,7 +3,7 @@ name: financeiro
 description: >
   Opera o razão local com o binário financeiro. Use quando a pessoa pedir saldo,
   lançamento, conta, cartão, recorrência, previsão, projeção, divisão, dívida
-  ou importação de um JSON.
+  ou importação e exportação de um JSON.
 ---
 
 # financeiro
@@ -28,6 +28,12 @@ Uma fatura:
 
 ```text
 financeiro import plan --from <json> --entity invoice --card <id> --reference YYYY-MM --with-deps --json
+```
+
+`export --to <path> --json` grava o razão inteiro no JSON versão 18. Esse arquivo é o que o frontend importa para mostrar os gráficos. O caminho que já existe não é substituído. `--force` substitui, e só depois que a pessoa confirma esse arquivo.
+
+```text
+financeiro export --to <path> --json
 ```
 
 `post`, `remove`, `card pay`, `recurring pay`, `forecast pay`, `settings set` e `import apply` rodam depois que a pessoa confirma o valor em centavos e a conta. Para o import, a confirmação é o plano: a pessoa vê as linhas `insert` e `dep` antes de `import apply`. A gravação copia os ids de origem. A mesma seleção, com o mesmo conteúdo, não duplica. `import` não usa `--idempotency-key`. Num outro comando que cria registro, mande `--idempotency-key`. A mesma chave no mesmo comando e no mesmo arquivo devolve o primeiro resultado e não grava de novo.

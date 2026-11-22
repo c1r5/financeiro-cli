@@ -14,6 +14,7 @@ import {
 import type { Settings } from '../settings/settings';
 import { SystemClock } from '../system-clock';
 import { UuidGenerator } from '../uuid-generator';
+import { executeExport } from './export-command';
 import { executeImport } from './import-command';
 import { runCard } from './card-command';
 import { runDebt, runDivision } from './division-command';
@@ -45,11 +46,12 @@ export async function run(argv: string[]): Promise<number> {
 	try {
 		const fromEnv = process.env.FINANCEIRO_FILE;
 		const file = option(args, '--file') ?? (fromEnv ? fromEnv : 'financeiro.sqlite');
-		if (args[0] === 'import') {
+		if (args[0] === 'import' || args[0] === 'export') {
 			const key = option(args, '--idempotency-key');
 			if (key === '') throw new Error('missing value for --idempotency-key');
 			if (key !== undefined) throw new Error('invalid idempotency command');
-			await executeImport(args, file, reply);
+			if (args[0] === 'import') await executeImport(args, file, reply);
+			else await executeExport(args, file, reply);
 			if (json) console.log(JSON.stringify({ ok: true, data }));
 			return 0;
 		}
