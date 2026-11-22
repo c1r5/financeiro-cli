@@ -56,12 +56,12 @@ jobs:
         with:
           branch: chore/release
           base: main
-          commit-message: chore: publica ${{ steps.plan.outputs.version }}
-          title: chore: publica ${{ steps.plan.outputs.version }}
+          commit-message: 'chore: publica ${{ steps.plan.outputs.version }}'
+          title: 'chore: publica ${{ steps.plan.outputs.version }}'
           body-path: ${{ steps.plan.outputs.notes_file }}
           add-paths: |
             package.json
             CHANGELOG.md
             README.md
-          committer: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
-          author: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
+          committer: 'github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>'
+          author: 'github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>'
